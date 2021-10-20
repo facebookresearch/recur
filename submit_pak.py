@@ -87,10 +87,11 @@ def main():
     shared_folder = get_shared_folder()
 
     grid = {
-        "real_series": [True],
-        "dimension": [1],
+        "real_series": [True, False],
+        "output_numeric": [True, False],
+        "dimension": [1,2,3],
         "optimizer":["adam_inverse_sqrt,lr=0.0002,warmup_updates=10000"],
-        "prob_rand":[0.1],
+        "prob_rand":[0.0],
     }
 
     def dict_product(d):

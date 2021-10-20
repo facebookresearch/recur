@@ -11,17 +11,13 @@ A script to run multinode training with submitit.
 import argparse
 import os
 import uuid
-import numpy as np
 from pathlib import Path
 import time
 import shutil
 import itertools
-from distutils import dir_util
 
 import train as classification
 import submitit
-
-FOLDER_NAME = "multdim"
 
 def parse_args():
     classification_parser = classification.get_parser()
@@ -42,8 +38,7 @@ def get_shared_folder() -> Path:
     user = os.getenv("USER")
     if Path("/checkpoint/").is_dir():
         p = Path(f"/checkpoint/{user}/recur")
-        # p = p / str(int(time.time()))
-        p = p / FOLDER_NAME
+        p = p / str(int(time.time()))
         p.mkdir(exist_ok=True)
         return p
     raise RuntimeError("No shared folder available")
@@ -85,12 +80,14 @@ def main():
     
     args = parse_args()
     shared_folder = get_shared_folder()
+    for f in os.listdir():
+        if f.endswith('.py'):
+            shutil.copy2(f, shared_folder)
+    shutil.copytree('src', os.path.join(shared_folder,'src'))
+    os.chdir(shared_folder)
 
     grid = {
-        "real_series": [True],
-        "dimension": [1],
-        "optimizer":["adam_inverse_sqrt,lr=0.0002,warmup_updates=10000"],
-        "prob_rand":[0.1],
+        'lr':[1.e-4,3.e-4,1.e-3]
     }
 
     def dict_product(d):
@@ -100,45 +97,38 @@ def main():
 
     for params in dict_product(grid):
 
-        args.master_port = np.random.randint(10001, 20000)
-        args.batch_size = 128
-        args.n_enc_layers = 8
-        args.n_dec_layers = 8
-        args.enc_emb_dim = 512
-        args.dec_emb_dim = 512
-        args.use_volta32 = True
-        # args.optimizer = 'adam_inverse_sqrt,lr={}'.format(params['lr'])
-        
-        name = '_'.join(['{}_{}'.format(k,v) for k,v in params.items()])
+        name = '_'.join(['{}_{}'.format(k,v) for k,v in params.items()])            
         args.job_dir = shared_folder / name
-        Path(args.job_dir).mkdir(exist_ok=True)
-
-        for f in os.listdir():
-            if f.endswith('.py'):
-                shutil.copy2(f, args.job_dir)
-        dir_util.copy_tree('src', os.path.join(args.job_dir,'src'))
-        os.chdir(args.job_dir)
-
+        
         args.exp_id = args.job_dir.name
         args.exp_name = args.job_dir.parent.name
         args.dump_path = args.job_dir.parent.parent
+
+        args.num_workers=1
+        args.reload_data='recurrence,/checkpoint/sdascoli/recur/data/equations.train,/checkpoint/sdascoli/recur/data/equations.valid,/checkpoint/sdascoli/recur/data/equations.test'
         
         # Note that the folder will depend on the job_id, to easily track experiments
         executor = submitit.AutoExecutor(folder=args.job_dir, slurm_max_num_timeout=30)
 
+        num_gpus_per_node = args.ngpus
+        nodes = args.nodes
+        timeout_min = args.timeout
+
+        partition = args.partition
         kwargs = {}
         if args.use_volta32:
             kwargs['slurm_constraint'] = 'volta32gb'
         if args.comment:
             kwargs['slurm_comment'] = args.comment
+
         executor.update_parameters(
-            mem_gb= 80 * args.ngpus,
-            gpus_per_node=args.ngpus,
-            tasks_per_node=args.ngpus,
+            mem_gb= 80 * num_gpus_per_node,
+            gpus_per_node=num_gpus_per_node,
+            tasks_per_node=num_gpus_per_node,  # one task per GPU
             cpus_per_task=10,
-            nodes=args.nodes,
-            timeout_min=args.timeout,  # max is 60 * 72
-            slurm_partition=args.partition,
+            nodes=nodes,
+            timeout_min=timeout_min,  # max is 60 * 72
+            slurm_partition=partition,
             slurm_signal_delay_s=120,
             **kwargs
         )

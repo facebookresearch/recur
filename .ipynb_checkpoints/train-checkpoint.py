@@ -123,7 +123,7 @@ def get_parser():
                         help="Tasks")
 
     # beam search configuration
-    parser.add_argument("--beam_eval", type=bool_flag, default=True, 
+    parser.add_argument("--beam_eval", type=bool_flag, default=True,
                         help="Evaluate with beam search decoding.")
     parser.add_argument("--max_output_len", type=int, default=64,
                         help="Max output length")
@@ -229,7 +229,6 @@ def main(params):
                 else:
                     trainer.enc_dec_step(task)
                 trainer.iter()
-                #scores = evaluator.run_all_evals()
 
         logger.info("============ End of epoch %i ============" % trainer.epoch)
 

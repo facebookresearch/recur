@@ -530,7 +530,9 @@ class Trainer(object):
 
         # batch
         (x1, len1), (x2, len2), _ = self.get_batch(task)
-
+        print(x1,len1)
+        print(x2,len2)
+        
         # target words to predict
         alen = torch.arange(len2.max(), dtype=torch.long, device=len2.device)
         pred_mask = (

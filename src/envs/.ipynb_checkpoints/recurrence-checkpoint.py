@@ -20,10 +20,10 @@ from src.envs.generators import all_operators
 import torch
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
-import collections
+
 from ..utils import bool_flag
 
-SPECIAL_WORDS = ["EOS", "PAD", "(", ")", "SPECIAL"]
+SPECIAL_WORDS = ["<s>", "</s>", "<pad>", "(", ")", "SPECIAL"]
 logger = getLogger()
 
 
@@ -51,30 +51,33 @@ class RecurrenceEnvironment(object):
             self.input_encoder = encoders.RealSeries(params)
         else:
             self.input_encoder = encoders.IntegerSeries(params)
-        self.input_words = SPECIAL_WORDS+sorted(list(set(self.input_encoder.symbols)))
-
+        
         if self.params.output_numeric:
-            self.output_encoder = encoders.RealSerioupes(params) if self.params.real_series else encoders.IntegerSeries(params)
+            if self.params.real_series:
+                self.output_encoder = encoders.RealSeries(params)
+            else:
+                self.output_encoder = encoders.IntegerSeries(params)
             self.output_words = sorted(list(set(self.output_encoder.symbols)))
         else:
+            self.output_words = SPECIAL_WORDS+sorted(list(set(self.generator.symbols)))
             self.output_encoder = encoders.Equation(params)
-            self.output_words = sorted(list(set(self.generator.symbols)))
-        self.output_words = SPECIAL_WORDS+self.output_words
-    
-        # number of words / indices
-        self.input_id2word = {i: s for i, s in enumerate(self.input_words)}
-        self.output_id2word = {i: s for i, s in enumerate(self.output_words)}
 
-    
-       
+        # vocabulary
+        self.input_words = sorted(list(set(self.input_encoder.symbols)))
+        
+        
+        
+        self.input_id2word = {i: s for i, s in enumerate(self.input_words)}
         self.input_word2id = {s: i for i, s in self.input_id2word.items()}
+        self.output_id2word = {i: s for i, s in enumerate(self.output_words)}
         self.output_word2id = {s: i for i, s in self.output_id2word.items()}
         assert len(self.input_words) == len(set(self.input_words))
         assert len(self.output_words) == len(set(self.output_words))
-        self.n_words = params.n_words = len(self.output_words)
-        self.eos_index = params.eos_index = self.output_word2id["EOS"]
-        self.pad_index = params.pad_index = self.output_word2id["PAD"]
 
+        # number of words / indices
+        self.n_words = params.n_words = len(self.output_words)
+        self.eos_index = params.eos_index = 0
+        self.pad_index = params.pad_index = 1
         logger.info(f"vocabulary: {len(self.input_word2id)} input words, {len(self.output_word2id)} output_words")
         logger.info(f"output words: {self.output_word2id.keys()}")
         
@@ -107,13 +110,10 @@ class RecurrenceEnvironment(object):
         m = self.output_encoder.decode(lst)
         if m is None:
             return "Invalid"
-        if self.params.output_numeric:
-            return np.array2string(np.array(m))
-        else:
-            return m.infix()
+        return m.infix()
 
     def gen_expr(self, train):
-        tree, series, predictions = self.generator.generate(rng=self.rng, prediction_points=self.params.output_numeric)
+        tree, series, predictions = self.generator.generate(self.rng, prediction_points=self.params.output_numeric)
         if tree is None or np.isnan(series[-1]):# or len(series)<self.params.series_length:
             return None, None
         
@@ -137,6 +137,9 @@ class RecurrenceEnvironment(object):
         if len(set(gaps))<2: return None, None # discard uninteresting series
         
         x = self.input_encoder.encode(series)
+        print("understanding inputs, {}".format(series.shape))
+        print(series)
+        print(x)
         if self.params.output_numeric:
             y = self.output_encoder.encode(predictions)
         else:
@@ -157,16 +160,13 @@ class RecurrenceEnvironment(object):
     def check_prediction(self, src, tgt, hyp, n_predictions=5):
         src = self.input_encoder.decode(src)
         eq_hyp = self.output_encoder.decode(hyp)
-        if eq_hyp is None or np.nan in eq_hyp:
+        if eq_hyp is None:
             return -1
         eq_tgt = self.output_encoder.decode(tgt)
-        if self.params.output_numeric:
-            error = self.generator.evaluate_numerical(tgt=eq_tgt, hyp=eq_hyp)
+        if eq_tgt is None: # When we don't have the ground truth, test on last terms
+            error = self.generator.evaluate_without_target(src, eq_hyp, n_predictions)
         else:
-            if eq_tgt is None: # When we don't have the ground truth, test on last terms
-                error = self.generator.evaluate_without_target(src, eq_hyp, n_predictions)
-            else:
-                error = self.generator.evaluate(src, eq_tgt, eq_hyp, n_predictions)
+            error = self.generator.evaluate(src, eq_tgt, eq_hyp, n_predictions)
         return error
 
     def create_train_iterator(self, task, data_path, params):
@@ -232,13 +232,13 @@ class RecurrenceEnvironment(object):
         Register environment parameters.
         """
         
-        parser.add_argument("--output_numeric", type=bool_flag, default=True,
+        parser.add_argument("--output_numeric", type=bool_flag, default=False,
                             help="Whether we learn to predict numeric values or a symbolic expression")
         
         # encoding
-        parser.add_argument("--real_series", type=bool_flag, default=False,
+        parser.add_argument("--real_series", type=bool_flag, default=True,
                             help="Whether to use real series rather than integer series")
-        parser.add_argument("--dimension", type=int, default=2,
+        parser.add_argument("--dimension", type=int, default=1,
                             help="Number of variables")
         parser.add_argument("--float_precision", type=int, default=3,
                             help="Number of digits in the mantissa")

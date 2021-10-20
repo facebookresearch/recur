@@ -45,7 +45,6 @@ def check_hypothesis(eq):
     hyp = [env.output_id2word[wid] for wid in eq["hyp"]]
 
     # update hypothesis
-
     eq["src"] = env.input_to_infix(src)
     eq["tgt"] = tgt
     eq["hyp"] = hyp

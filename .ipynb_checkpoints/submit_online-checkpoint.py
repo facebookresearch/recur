@@ -21,12 +21,10 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "multdim"
-
 def parse_args():
     classification_parser = classification.get_parser()
     parser = argparse.ArgumentParser("Submitit for recur", parents=[classification_parser])
-    parser.add_argument("--ngpus", default=8, type=int, help="Number of gpus to request on each node")
+    parser.add_argument("--ngpus", default=4, type=int, help="Number of gpus to request on each node")
     parser.add_argument("--nodes", default=1, type=int, help="Number of nodes to request")
     parser.add_argument("--timeout", default=1000, type=int, help="Duration of the job")
     parser.add_argument("--job_dir", default="", type=str, help="Job dir. Leave empty for automatic.")
@@ -43,7 +41,7 @@ def get_shared_folder() -> Path:
     if Path("/checkpoint/").is_dir():
         p = Path(f"/checkpoint/{user}/recur")
         # p = p / str(int(time.time()))
-        p = p / FOLDER_NAME
+        p = p / str(1633105818)
         p.mkdir(exist_ok=True)
         return p
     raise RuntimeError("No shared folder available")
@@ -88,9 +86,12 @@ def main():
 
     grid = {
         "real_series": [True],
-        "dimension": [1],
-        "optimizer":["adam_inverse_sqrt,lr=0.0002,warmup_updates=10000"],
-        "prob_rand":[0.1],
+        "prob_rand":[0],
+        "n_enc_layers":[1,2],
+        "n_dec_layers":[6,8],
+        # 'float_precision':[3,4]
+        # "int_base": [100,1000,10000]
+        # "lr":[0.001, 0.005, 0.01]
     }
 
     def dict_product(d):
@@ -101,11 +102,10 @@ def main():
     for params in dict_product(grid):
 
         args.master_port = np.random.randint(10001, 20000)
-        args.batch_size = 128
-        args.n_enc_layers = 8
-        args.n_dec_layers = 8
-        args.enc_emb_dim = 512
+        args.batch_size = 256
+        if params["n_enc_layers"]==4 and params["n_dec_layers"]==4: continue
         args.dec_emb_dim = 512
+        args.enc_emb_dim = 512
         args.use_volta32 = True
         # args.optimizer = 'adam_inverse_sqrt,lr={}'.format(params['lr'])
         

@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
 import math
-import copy
 
 from numpy.compat.py3k import npy_load_module
 #from wrapt_timeout_decorator import *
@@ -143,16 +142,7 @@ class Node():
         else:
             return getattr(np,self.value)(self.children[0].val(series))
         
-    def get_recurrence_degree(self):
-        recurrence_degree=0
-        if len(self.children) == 0:
-            if str(self.value).startswith('x_'):
-                _, _, offset = self.value.split('_')
-                offset=int(offset)
-                if offset>recurrence_degree:
-                    recurrence_degree=offset
-            return recurrence_degree
-        return max([child.get_recurrence_degree() for child in self.children])
+
         
 class NodeList():
     def __init__(self, nodes):
@@ -173,14 +163,11 @@ class NodeList():
     def __str__(self):
         return self.infix()
     
-    def val(self, series, deterministic=False, nodes_to_compute=None):
-        if nodes_to_compute is None:
-            nodes_to_compute = self.nodes
-        return [node.val(series, deterministic=deterministic) if node in nodes_to_compute else None for node in self.nodes]
+    def val(self, series, deterministic=False):
+        return [node.val(series, deterministic=deterministic) for node in self.nodes]
     
-    def get_recurrence_degrees(self):
-        return [node.get_recurrence_degree() for node in self.nodes]
 
+    
 class Generator(ABC):
     def __init__(self, params):
         pass
@@ -192,6 +179,7 @@ class Generator(ABC):
     @abstractmethod
     def evaluate(self, src, tgt, hyp):
         pass
+
 
     
 class RandomRecurrence(Generator):
@@ -353,28 +341,16 @@ class RandomRecurrence(Generator):
             trees.append(self.generate_tree(nb_ops[i],deg))
         tree = NodeList(trees)
         
-        recurrence_degrees = tree.get_recurrence_degrees()
-        min_recurrence_degree, max_recurrence_degree = min(recurrence_degrees), max(recurrence_degrees)
-
-        initial_conditions = [[self.rng.uniform(-self.init_scale, self.init_scale) if self.real_series else self.rng.randint(-self.init_scale, self.init_scale+1) \
-                               for _ in range(recurrence_degrees[dim])] for dim in range(self.dimension)]
-
-        series = [initial_conditions[dim][deg] for dim in range(self.dimension) for deg in range(min_recurrence_degree)]
-
-        ##complete initial conditions by computing the real sequence
-        for degree in range(min_recurrence_degree, max_recurrence_degree):
-            nodes_to_update = [node  for i, node in enumerate(tree.nodes)  if degree>=recurrence_degrees[i]]
-            next_values = tree.val(series,nodes_to_compute=nodes_to_update)
-            for dim in range(self.dimension):
-                if next_values[dim] is None:
-                    next_values[dim]=initial_conditions[dim][degree]
-            series.extend(next_values)
-
-        ##compute remaining points with given initial conditions
-        for i in range(max_recurrence_degree, length):
+        series = []
+        for i in range(deg*self.dimension):
+            if self.real_series: 
+                series.append(self.rng.uniform(-self.init_scale, self.init_scale))
+            else:
+                series.append(self.rng.randint(-self.init_scale, self.init_scale+1))
+        for i in range(deg, length):
             vals = tree.val(series)
             if any([np.isnan(x) for x in vals]) or any([abs(x)>self.max_number for x in vals]): 
-                return None, None, None
+                return None, None
             series.extend(vals)
             
         if prediction_points:
@@ -387,38 +363,17 @@ class RandomRecurrence(Generator):
         return tree, series_input, series_to_predict
 
     def evaluate(self, src, tgt, hyp, n_predictions=3):
-        src_hyp = copy.deepcopy(src)
-        src_tgt = copy.deepcopy(src)
         errors = []
         for i in range(n_predictions):
             try:
-                pred = hyp.val(src_hyp, deterministic=True)
-                src_hyp.extend(pred)
-                true = tgt.val(src_tgt, deterministic=True)
-                src_tgt.extend(true)
+                pred = hyp.val(src, deterministic=True)
+                true = tgt.val(src, deterministic=True)
+                src.extend(true)
                 errors.append(max([abs(float(p-t)/float(t+1e-100)) for p,t in zip(pred, true)]))
             except Exception as e:
                 print(e)
                 return -1
         return max(errors)        
-
-    def chunks_idx(self, step, min, max):
-        curr=min
-        while curr<max:
-            yield [i for i in range(curr, curr+step)]
-            curr+=step
-
-    def evaluate_numerical(self, tgt, hyp):
-        errors = []
-        
-        for idx in self.chunks_idx(self.dimension, min=0, max=len(tgt)):
-            try:
-                pred=[hyp[i] for i in idx]
-                true=[tgt[i] for i in idx]
-                errors.append(max([abs(float(p-t)/float(t+1e-100)) for p,t in zip(pred, true)]))
-            except IndexError or TypeError:
-                return -1
-        return max(errors)  
 
     def evaluate_without_target(self, src, hyp, n_predictions=3):
         errors = []
@@ -427,7 +382,7 @@ class RandomRecurrence(Generator):
         for i in range(n_predictions):
             pred = hyp.val(src)
             true = targets[i]
-            src.extend(pred)
+            src.extend(true)
             errors.append(max([abs(float(p-t)/float(t+1e-100)) for p,t in zip(pred, true)]))
             # except:
             #     return -1

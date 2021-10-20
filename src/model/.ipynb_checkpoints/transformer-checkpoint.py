@@ -278,7 +278,7 @@ class TransformerModel(nn.Module):
 
         # output layer
         if self.with_output:
-            self.proj = nn.Linear(self.dim, params.n_words, bias=True) ##added index for eos and tab 
+            self.proj = nn.Linear(self.dim, params.n_words, bias=True)
             if params.share_inout_emb:
                 self.proj.weight = self.embeddings.weight
 
@@ -542,7 +542,7 @@ class TransformerModel(nn.Module):
         ]
 
         # positions
-        positions = src_len.new(max_len).long()  ##TODO: why is max_len so big? 
+        positions = src_len.new(max_len).long()
         positions = (
             torch.arange(max_len, out=positions).unsqueeze(1).expand_as(generated)
         )

@@ -42,29 +42,21 @@ class IntegerSeries(Encoder):
         return seq
 
     def decode(self, lst):
-        if len(lst) == 0:
-            return None
-        res = []
-        if lst[0] in ["+", "-"]:
-            curr_group = [lst[0]]
-        else:
-            return None
-        if lst[-1] in ["+", "-"]:
-            return None
 
+        if len(lst) == 0:
+            return np.nan, 0
+        sign = 1 if lst[0] == "+" else -1
+        res = []
+        curr = 0
+        sign = 1 if lst[0]=='+' else -1
         for x in lst[1:]:
-            if x in ["+", "-"]:
-                if len(curr_group)>1:
-                    sign = 1 if curr_group[0]=="+" else -1
-                    value = 0
-                    for elem in curr_group[1:]:
-                        value = value*self.int_base + int(elem)
-                    res.append(sign*value)
-                    curr_group = [x]
-                else:
-                    return None
+            if x in ['+','-']:
+                res.append(sign*curr)
+                sign = 1 if x=='+' else -1
+                curr = 0
             else:
-                curr_group.append(x)
+                curr = curr*self.int_base + int(x)
+        res.append(sign*curr)
         return res
     
 class RealSeries(Encoder):
@@ -107,9 +99,7 @@ class RealSeries(Encoder):
         """
         Parse a list that starts with a float.
         Return the float value, and the position it ends in the list.
-    """
-        if len(lst)==0:
-            return None
+        """
         seq = []
         for val in self.chunks(lst, 3):
             for x in val: 
@@ -119,10 +109,10 @@ class RealSeries(Encoder):
                 mant = int(val[1][1:])
                 exp = int(val[2][1:])
                 value = sign * mant * (10 ** exp)
-                value=float(value)
             except Exception:
                 value = np.nan
             seq.append(value)
+        
         return seq
     
 class Equation(Encoder):
