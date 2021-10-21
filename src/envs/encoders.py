@@ -42,6 +42,7 @@ class IntegerSeries(Encoder):
         return seq
 
     def decode(self, lst):
+        
         if len(lst) == 0:
             return None
         res = []
@@ -65,6 +66,12 @@ class IntegerSeries(Encoder):
                     return None
             else:
                 curr_group.append(x)
+        if len(curr_group)>1:
+            sign = 1 if curr_group[0]=="+" else -1
+            value = 0
+            for elem in curr_group[1:]:
+                value = value*self.int_base + int(elem)
+            res.append(sign*value)
         return res
     
 class RealSeries(Encoder):

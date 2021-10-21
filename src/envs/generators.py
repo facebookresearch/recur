@@ -250,26 +250,26 @@ class RandomRecurrence(Generator):
         assert all(len(D[i]) >= len(D[i + 1]) for i in range(len(D) - 1))
         return D
 
-    def generate_leaf(self, degree):
-        if self.rng.rand() < self.prob_rand:
+    def generate_leaf(self, rng, degree):
+        if rng.rand() < self.prob_rand:
             return 'rand'
         else:
-            draw = self.rng.rand()
+            draw = rng.rand()
             if draw < self.prob_const:
-	            return self.rng.choice(self.constants)
+	            return rng.choice(self.constants)
             elif draw > self.prob_const and draw < self.prob_const + self.prob_n:
                 return 'n'
             else:
-                return f'x_{self.rng.randint(self.dimension)}_{self.rng.randint(degree)+1}'
+                return f'x_{rng.randint(self.dimension)}_{rng.randint(degree)+1}'
 
-    def generate_ops(self, arity):
+    def generate_ops(self, rng, arity):
         if arity==1:
             ops = [unary for unary in self.unaries]
         else:
             ops = [binary for binary in self.binaries]
-        return self.rng.choice(ops)
+        return rng.choice(ops)
 
-    def sample_next_pos(self, nb_empty, nb_ops):
+    def sample_next_pos(self, rng, nb_empty, nb_ops):
         """
         Sample the position of the next node (binary case).
         Sample a position in {0, ..., `nb_empty` - 1}.
@@ -284,22 +284,22 @@ class RandomRecurrence(Generator):
             probs.append(self.distrib[nb_ops - 1][nb_empty - i + 1])
         probs = [p / self.distrib[nb_ops][nb_empty] for p in probs]
         probs = np.array(probs, dtype=np.float64)
-        e = self.rng.choice(len(probs), p=probs)
+        e = rng.choice(len(probs), p=probs)
         arity = 1 if self.unary and e < nb_empty else 2
         e %= nb_empty
         return e, arity
 
-    def generate_tree(self, nb_ops, degree):
+    def generate_tree(self, rng, nb_ops, degree):
         tree = Node(0, self.params)
         empty_nodes = [tree]
         next_en = 0
         nb_empty = 1
         while nb_ops > 0:
-            next_pos, arity = self.sample_next_pos(nb_empty, nb_ops)
+            next_pos, arity = self.sample_next_pos(rng, nb_empty, nb_ops)
             for n in empty_nodes[next_en:next_en + next_pos]:
-                n.value = self.generate_leaf(degree)
+                n.value = self.generate_leaf(rng, degree)
             next_en += next_pos
-            op = self.generate_ops(arity)
+            op = self.generate_ops(rng, arity)
             empty_nodes[next_en].value = op
             for _ in range(arity):
                 e = Node(0, self.params)
@@ -309,7 +309,7 @@ class RandomRecurrence(Generator):
             nb_ops -= 1
             next_en += 1
         for n in empty_nodes[next_en:]:
-            n.value = self.generate_leaf(degree)
+            n.value = self.generate_leaf(rng, degree)
         
         #tree = self.check_tree(tree, degree)
         
@@ -336,27 +336,24 @@ class RandomRecurrence(Generator):
         
     def generate(self, rng, nb_ops=None, deg=None, length=None, prediction_points=False):
         """prediction_points is a boolean which indicates whether we compute prediction points. By default we do not to save time. """
-        self.rng = rng
-        self.rng.seed() # TODO : fix this
-
-        if deg is None:    deg    = self.rng.randint(1, self.max_degree + 1)
-        if length is None: length = self.rng.randint(3*deg, self.max_len+1)
+        if deg is None:    deg    = rng.randint(1, self.max_degree + 1)
+        if length is None: length = rng.randint(3*deg, self.max_len+1)
 
         if prediction_points:
             length +=  self.params.n_predictions
         
         trees = []
-        if nb_ops is None: nb_ops = self.rng.randint(1, self.max_ops + 1, size=(self.dimension,))
+        if nb_ops is None: nb_ops = rng.randint(1, self.max_ops + 1, size=(self.dimension,))
         elif type(nb_ops)==int: nb_ops = [nb_ops]*self.dimension
             
         for i in range(self.dimension):
-            trees.append(self.generate_tree(nb_ops[i],deg))
+            trees.append(self.generate_tree(rng, nb_ops[i],deg))
         tree = NodeList(trees)
         
         recurrence_degrees = tree.get_recurrence_degrees()
         min_recurrence_degree, max_recurrence_degree = min(recurrence_degrees), max(recurrence_degrees)
 
-        initial_conditions = [[self.rng.uniform(-self.init_scale, self.init_scale) if self.real_series else self.rng.randint(-self.init_scale, self.init_scale+1) \
+        initial_conditions = [[rng.uniform(-self.init_scale, self.init_scale) if self.real_series else rng.randint(-self.init_scale, self.init_scale+1) \
                                for _ in range(recurrence_degrees[dim])] for dim in range(self.dimension)]
 
         series = [initial_conditions[dim][deg] for dim in range(self.dimension) for deg in range(min_recurrence_degree)]

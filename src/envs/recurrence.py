@@ -157,8 +157,12 @@ class RecurrenceEnvironment(object):
     def check_prediction(self, src, tgt, hyp, n_predictions=5):
         src = self.input_encoder.decode(src)
         eq_hyp = self.output_encoder.decode(hyp)
-        if eq_hyp is None or np.nan in eq_hyp:
-            return -1
+        if self.params.output_numeric:
+            if eq_hyp is None or np.nan in eq_hyp:
+                return -1
+        else:
+            if eq_hyp is None:
+                return -1
         eq_tgt = self.output_encoder.decode(tgt)
         if self.params.output_numeric:
             error = self.generator.evaluate_numerical(tgt=eq_tgt, hyp=eq_hyp)
@@ -238,7 +242,7 @@ class RecurrenceEnvironment(object):
         # encoding
         parser.add_argument("--real_series", type=bool_flag, default=True,
                             help="Whether to use real series rather than integer series")
-        parser.add_argument("--dimension", type=int, default=3,
+        parser.add_argument("--dimension", type=int, default=1,
                             help="Number of variables")
         parser.add_argument("--float_precision", type=int, default=3,
                             help="Number of digits in the mantissa")
