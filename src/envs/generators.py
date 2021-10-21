@@ -153,7 +153,13 @@ class Node():
                     recurrence_degree=offset
             return recurrence_degree
         return max([child.get_recurrence_degree() for child in self.children])
-        
+    
+    def get_n_ops(self):
+        if self.value in all_operators:
+            return 1 + sum([child.get_n_ops() for child in self.children])
+        else: 
+            return 0
+
 class NodeList():
     def __init__(self, nodes):
         self.nodes = []
@@ -173,6 +179,9 @@ class NodeList():
     def __str__(self):
         return self.infix()
     
+    def get_n_ops(self):
+        return sum([node.get_n_ops() for node in self.nodes])
+
     def val(self, series, deterministic=False, dim_to_compute=None):
         if dim_to_compute is None:
             dim_to_compute = [i for i in range(len(self.nodes))]
@@ -333,8 +342,11 @@ class RandomRecurrence(Generator):
     #        while (node.children[0].value == node.children[1].value) or (isinstance(node.children[0].value,int) and isinstance(node.children[1].value,int)):
     #            node.children[1].value = self.generate_leaf(degree)
     #    return node
-        
+    
     def generate(self, rng, nb_ops=None, deg=None, length=None, prediction_points=False):
+        rng = rng
+        rng.seed() 
+
         """prediction_points is a boolean which indicates whether we compute prediction points. By default we do not to save time. """
         if deg is None:    deg    = rng.randint(1, self.max_degree + 1)
         if length is None: length = rng.randint(3*deg, self.max_len+1)
@@ -369,8 +381,16 @@ class RandomRecurrence(Generator):
             for dim in range(self.dimension):
                 if next_values[dim] is None:
                     next_values[dim]=initial_conditions[dim][degree]
-            next_values_array = np.array(next_values, dtype=np.float)
-            if np.any(np.isnan(next_values_array)) or np.any(np.abs(next_values_array)>self.max_number): 
+                    
+            if any([abs(x)>self.max_number for x in next_values]): 
+                return None, None, None
+            try:
+                next_values_array = np.array(next_values, dtype=np.float)
+            except OverflowError as e:
+                print(tree, next_values)
+                return None, None, None
+            
+            if np.any(np.isnan(next_values_array)): 
                 return None, None, None
             series.extend(next_values)
 
@@ -383,9 +403,17 @@ class RandomRecurrence(Generator):
             except Exception as e:
                 #print(e, series, tree.infix())
                 return None, None, None
-            vals_array = np.array(vals, dtype=np.float)
-            if np.any(np.isnan(vals_array)) or np.any(np.abs(vals_array)>self.max_number): 
+            
+            if any([abs(x)>self.max_number for x in vals]): 
                 return None, None, None
+            try:
+                vals_array = np.array(vals, dtype=np.float)
+            except OverflowError as e:
+                print(tree, vals)
+                return None, None, None
+            if np.any(np.isnan(vals_array)): 
+                return None, None, None
+            
             series.extend(vals)
             
         if prediction_points:

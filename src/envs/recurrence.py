@@ -115,7 +115,7 @@ class RecurrenceEnvironment(object):
     def gen_expr(self, train):
         tree, series, predictions = self.generator.generate(rng=self.rng, prediction_points=self.params.output_numeric)
         if tree is None or np.isnan(series[-1]):# or len(series)<self.params.series_length:
-            return None, None
+            return None, None, None
         
         if not train:
             ##TODO: add noise to predictions
@@ -134,7 +134,7 @@ class RecurrenceEnvironment(object):
 
         ending = np.array(series[-5:])
         gaps = abs(ending[1:]-ending[:-1])
-        if len(set(gaps))<2: return None, None # discard uninteresting series
+        if len(set(gaps))<2: return None, None, None # discard uninteresting series
         
         x = self.input_encoder.encode(series)
         if self.params.output_numeric:
@@ -142,15 +142,11 @@ class RecurrenceEnvironment(object):
         else:
             y = self.output_encoder.encode(tree)
 
-        return x, y
+        return x, y, tree
 
-    def code_class(self, series, tree):
-        nb_ops = 0
-        for symbol in tree:
-            if symbol in all_operators:
-                nb_ops+=1
-        return nb_ops
-
+    def code_class(self, tree):
+        return tree.get_n_ops()
+        
     def decode_class(self, nb_ops):
         return nb_ops
 
@@ -376,8 +372,8 @@ class EnvDataset(Dataset):
         """
         Collate samples into a batch.
         """
-        x, y = zip(*elements)
-        code = [self.env.code_class(xi, yi) for xi, yi in zip(x, y)]
+        x, y, tree = zip(*elements)
+        code = [self.env.code_class(treei) for xi,yi,treei in zip(x, y, tree)]
         x = [torch.LongTensor([self.env.input_word2id[w] for w in seq]) for seq in x]
         y = [torch.LongTensor([self.env.output_word2id[w] for w in seq]) for seq in y]
         x, x_len = self.env.batch_sequences(x)
@@ -457,7 +453,7 @@ class EnvDataset(Dataset):
         while True:
             try:
                 if self.task == "recurrence":
-                    x,y = self.env.gen_expr(self.train)
+                    x,y,tree = self.env.gen_expr(self.train)
                 else:
                     raise Exception(f"Unknown data type: {self.task}")
                 if x is None or y is None:
@@ -476,4 +472,4 @@ class EnvDataset(Dataset):
                 continue
         self.count += 1
 
-        return x, y
+        return x, y, tree
