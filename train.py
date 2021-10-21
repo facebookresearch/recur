@@ -80,7 +80,7 @@ def get_parser():
                         help="Use sinusoidal embeddings")
 
     # training parameters
-    parser.add_argument("--env_base_seed", type=int, default=0,
+    parser.add_argument("--env_base_seed", type=int, default=-1,
                         help="Base seed for environments (-1 to use timestamp seed)")
     parser.add_argument("--batch_size", type=int, default=256,
                         help="Number of sentences per batch")
@@ -92,7 +92,7 @@ def get_parser():
                         help="Clip gradients norm (0 to disable)")
     parser.add_argument("--epoch_size", type=int, default=300000,
                         help="Epoch size / evaluation frequency")
-    parser.add_argument("--max_epoch", type=int, default=1000,
+    parser.add_argument("--max_epoch", type=int, default=100000,
                         help="Number of epochs")
     parser.add_argument("--stopping_criterion", type=str, default="",
                         help="Stopping criterion, and number of non-increase before stopping the experiment")
@@ -191,9 +191,7 @@ def main(params):
         init_signal_handler()
 
     # CPU / CUDA
-    if params.cpu:
-        assert not params.multi_gpu
-    else:
+    if not params.cpu:
         assert torch.cuda.is_available()
     src.utils.CUDA = not params.cpu
 

@@ -54,7 +54,7 @@ class RecurrenceEnvironment(object):
         self.input_words = SPECIAL_WORDS+sorted(list(set(self.input_encoder.symbols)))
 
         if self.params.output_numeric:
-            self.output_encoder = encoders.RealSerioupes(params) if self.params.real_series else encoders.IntegerSeries(params)
+            self.output_encoder = encoders.RealSeries(params) if self.params.real_series else encoders.IntegerSeries(params)
             self.output_words = sorted(list(set(self.output_encoder.symbols)))
         else:
             self.output_encoder = encoders.Equation(params)
@@ -236,9 +236,9 @@ class RecurrenceEnvironment(object):
                             help="Whether we learn to predict numeric values or a symbolic expression")
         
         # encoding
-        parser.add_argument("--real_series", type=bool_flag, default=False,
+        parser.add_argument("--real_series", type=bool_flag, default=True,
                             help="Whether to use real series rather than integer series")
-        parser.add_argument("--dimension", type=int, default=2,
+        parser.add_argument("--dimension", type=int, default=3,
                             help="Number of variables")
         parser.add_argument("--float_precision", type=int, default=3,
                             help="Number of digits in the mantissa")

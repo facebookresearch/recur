@@ -101,7 +101,7 @@ class Node():
                 dim_offset = dim-curr_dim
                 return series[-offset*self.params.dimension+dim_offset]
             elif str(self.value) == 'n':
-                return len(series)
+                return 1+int(len(series)/self.params.dimension)
             elif str(self.value) == 'rand':
                 if deterministic: return 0
                 if self.params.real_series:
@@ -173,10 +173,10 @@ class NodeList():
     def __str__(self):
         return self.infix()
     
-    def val(self, series, deterministic=False, nodes_to_compute=None):
-        if nodes_to_compute is None:
-            nodes_to_compute = self.nodes
-        return [node.val(series, deterministic=deterministic) if node in nodes_to_compute else None for node in self.nodes]
+    def val(self, series, deterministic=False, dim_to_compute=None):
+        if dim_to_compute is None:
+            dim_to_compute = [i for i in range(len(self.nodes))]
+        return [self.nodes[i].val(series, deterministic=deterministic) if i in dim_to_compute else None for i in range(len(self.nodes))]
     
     def get_recurrence_degrees(self):
         return [node.get_recurrence_degree() for node in self.nodes]
@@ -225,8 +225,7 @@ class RandomRecurrence(Generator):
         if params.real_series:
             self.constants += math_constants
         self.symbols = list(self.operators) + [f'x_{i}_{j}' for i in range(self.dimension) for j in range(self.max_degree+1)] + self.constants + ['n', '|']
-        if params.prob_rand:
-            self.symbols += ['rand']
+        self.symbols += ['rand']
 
     def generate_dist(self, max_ops):
         """
@@ -252,15 +251,16 @@ class RandomRecurrence(Generator):
         return D
 
     def generate_leaf(self, degree):
-        draw = self.rng.rand()
-        if draw < self.prob_const:
-            return self.rng.choice(self.constants)
-        elif draw > self.prob_const and draw < self.prob_const + self.prob_n:
-            return 'n'
-        elif draw > self.prob_const + self.prob_n and draw < self.prob_const + self.prob_n + self.prob_rand:
+        if self.rng.rand() < self.prob_rand:
             return 'rand'
         else:
-            return f'x_{self.rng.randint(self.dimension)}_{self.rng.randint(degree)+1}'
+            draw = self.rng.rand()
+            if draw < self.prob_const:
+	            return self.rng.choice(self.constants)
+            elif draw > self.prob_const and draw < self.prob_const + self.prob_n:
+                return 'n'
+            else:
+                return f'x_{self.rng.randint(self.dimension)}_{self.rng.randint(degree)+1}'
 
     def generate_ops(self, arity):
         if arity==1:
@@ -363,17 +363,31 @@ class RandomRecurrence(Generator):
 
         ##complete initial conditions by computing the real sequence
         for degree in range(min_recurrence_degree, max_recurrence_degree):
-            nodes_to_update = [node  for i, node in enumerate(tree.nodes)  if degree>=recurrence_degrees[i]]
-            next_values = tree.val(series,nodes_to_compute=nodes_to_update)
+            dim_to_compute = [dim for dim in range(self.dimension)  if degree>=recurrence_degrees[dim]]
+            try:
+                next_values = tree.val(series,dim_to_compute=dim_to_compute)
+            except Exception as e:
+                #print(e, "degree: {}".format(degree), series, tree.infix())
+                return None, None, None
             for dim in range(self.dimension):
                 if next_values[dim] is None:
                     next_values[dim]=initial_conditions[dim][degree]
+            next_values_array = np.array(next_values, dtype=np.float)
+            if np.any(np.isnan(next_values_array)) or np.any(np.abs(next_values_array)>self.max_number): 
+                return None, None, None
             series.extend(next_values)
+
+        assert len(series)==max_recurrence_degree*self.dimension, "Problem with initial conditions"
 
         ##compute remaining points with given initial conditions
         for i in range(max_recurrence_degree, length):
-            vals = tree.val(series)
-            if any([np.isnan(x) for x in vals]) or any([abs(x)>self.max_number for x in vals]): 
+            try:
+                vals = tree.val(series)
+            except Exception as e:
+                #print(e, series, tree.infix())
+                return None, None, None
+            vals_array = np.array(vals, dtype=np.float)
+            if np.any(np.isnan(vals_array)) or np.any(np.abs(vals_array)>self.max_number): 
                 return None, None, None
             series.extend(vals)
             
