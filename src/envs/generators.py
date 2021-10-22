@@ -107,7 +107,7 @@ class Node():
                 if self.params.real_series:
                     return np.random.randn()
                 else:
-                    return np.random.choice([-1,0,1])
+                    return int(np.random.choice([-1,0,1]))
             elif str(self.value) in math_constants:
                 return getattr(np, str(self.value))
             else:
@@ -386,7 +386,7 @@ class RandomRecurrence(Generator):
                 return None, None, None
             try:
                 next_values_array = np.array(next_values, dtype=np.float)
-            except OverflowError as e:
+            except Exception as e:
                 print(tree, next_values)
                 return None, None, None
             
@@ -403,17 +403,16 @@ class RandomRecurrence(Generator):
             except Exception as e:
                 #print(e, series, tree.infix())
                 return None, None, None
-            
             if any([abs(x)>self.max_number for x in vals]): 
                 return None, None, None
+
             try:
                 vals_array = np.array(vals, dtype=np.float)
-            except OverflowError as e:
+            except Exception as e:
                 print(tree, vals)
                 return None, None, None
             if np.any(np.isnan(vals_array)): 
                 return None, None, None
-            
             series.extend(vals)
             
         if prediction_points:
@@ -422,7 +421,7 @@ class RandomRecurrence(Generator):
         else:
             series_input = series
             series_to_predict = None
-            
+        
         return tree, series_input, series_to_predict
 
     def evaluate(self, src, tgt, hyp, n_predictions=3):

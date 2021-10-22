@@ -113,8 +113,9 @@ class RecurrenceEnvironment(object):
             return m.infix()
 
     def gen_expr(self, train):
-        tree, series, predictions = self.generator.generate(rng=self.rng, prediction_points=self.params.output_numeric)
-        if tree is None or np.isnan(series[-1]):# or len(series)<self.params.series_length:
+        tree, series, predictions = self.generator.generate(rng=self.rng, 
+                                                            prediction_points=self.params.output_numeric)
+        if tree is None:
             return None, None, None
         
         if not train:
@@ -142,6 +143,9 @@ class RecurrenceEnvironment(object):
         else:
             y = self.output_encoder.encode(tree)
 
+        max_token_len=self.params.max_token_len
+        if max_token_len > 0 and (len(x) >= max_token_len or len(y) >= max_token_len):
+            return None, None, None
         return x, y, tree
 
     def code_class(self, tree):
@@ -248,6 +252,7 @@ class RecurrenceEnvironment(object):
                             help="Integer base used when encoding sequences")
         parser.add_argument("--max_number", type=int, default=1e100,
                             help="Maximal order of magnitude")
+        parser.add_argument("--max_token_len", type=int, default=0, help="max size of tokenized sentences, 0 is no filtering")
 
         #generator 
         parser.add_argument("--max_int", type=int, default=10,
@@ -373,7 +378,7 @@ class EnvDataset(Dataset):
         Collate samples into a batch.
         """
         x, y, tree = zip(*elements)
-        code = [self.env.code_class(treei) for xi,yi,treei in zip(x, y, tree)]
+        code = [self.env.code_class(treei) for _,_,treei in zip(x, y, tree)]
         x = [torch.LongTensor([self.env.input_word2id[w] for w in seq]) for seq in x]
         y = [torch.LongTensor([self.env.output_word2id[w] for w in seq]) for seq in y]
         x, x_len = self.env.batch_sequences(x)

@@ -91,6 +91,7 @@ def main():
         "output_numeric": [True, False],
         "dimension": [1,2,3],
         "prob_rand": [0.05, 0.0],
+        "batch_size": [64],
         "optimizer":["adam_inverse_sqrt,lr=0.0002,warmup_updates=10000"],
     }
 
@@ -108,6 +109,7 @@ def main():
         args.enc_emb_dim = 512
         args.dec_emb_dim = 512
         args.use_volta32 = True
+        args.max_token_len=200
         # args.optimizer = 'adam_inverse_sqrt,lr={}'.format(params['lr'])
         
         name = '_'.join(['{}_{}'.format(k,v) for k,v in params.items()])
