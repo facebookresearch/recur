@@ -159,6 +159,8 @@ def get_parser():
                         help="Export evaluation details")
     parser.add_argument("--eval_verbose_print", type=bool_flag, default=False,
                         help="Print evaluation details")
+    parser.add_argument("--eval_ablation_input_length", type=bool_flag, default=False,
+                        help="Compute accuracy for all input lengths")
 
     # debug
     parser.add_argument("--debug_slurm", type=bool_flag, default=False,

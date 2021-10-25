@@ -135,7 +135,9 @@ class Evaluator(object):
             batch_size=params.batch_size_eval,
             params=params,
             size=params.eval_size,
+            ablation_input_length=params.eval_ablation_input_length
         )
+        
         eval_size = len(iterator.dataset)
         logger.info('Testing on {} samples'.format(eval_size))
 

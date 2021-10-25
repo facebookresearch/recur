@@ -112,9 +112,10 @@ class RecurrenceEnvironment(object):
         else:
             return m.infix()
 
-    def gen_expr(self, train):
+    def gen_expr(self, train, all_input_length=False):
         tree, series, predictions = self.generator.generate(rng=self.rng, 
-                                                            prediction_points=self.params.output_numeric)
+                                                            prediction_points=self.params.output_numeric,
+                                                            all_input_length=all_input_length)
         if tree is None:
             return None, None, None
         
@@ -200,7 +201,7 @@ class RecurrenceEnvironment(object):
         )
 
     def create_test_iterator(
-        self, data_type, task, data_path, batch_size, params, size
+        self, data_type, task, data_path, batch_size, params, size, ablation_input_length=False
     ):
         """
         Create a dataset for this environment.
@@ -228,6 +229,7 @@ class RecurrenceEnvironment(object):
             num_workers=1,
             shuffle=False,
             collate_fn=dataset.collate_fn,
+            all_input_length=ablation_input_length
         )
 
     @staticmethod
@@ -283,7 +285,7 @@ class RecurrenceEnvironment(object):
 
 
 class EnvDataset(Dataset):
-    def __init__(self, env, task, train, params, path, size=None, type=None):
+    def __init__(self, env, task, train, params, path, size=None, type=None,all_input_length=False):
         super(EnvDataset).__init__()
         self.env = env
         self.train = train
@@ -294,6 +296,7 @@ class EnvDataset(Dataset):
         self.global_rank = params.global_rank
         self.count = 0
         self.type = type
+        self.all_input_length=all_input_length
         assert task in RecurrenceEnvironment.TRAINING_TASKS
         assert size is None or not self.train
         assert not params.batch_load or params.reload_size > 0
@@ -458,7 +461,7 @@ class EnvDataset(Dataset):
         while True:
             try:
                 if self.task == "recurrence":
-                    x,y,tree = self.env.gen_expr(self.train)
+                    x,y,tree = self.env.gen_expr(self.train, all_input_length=self.all_input_length)
                 else:
                     raise Exception(f"Unknown data type: {self.task}")
                 if x is None or y is None:

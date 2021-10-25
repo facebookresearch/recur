@@ -529,8 +529,11 @@ class Trainer(object):
         
 
         # batch
+        #online_data_time = time.time()
         (x1, len1), (x2, len2), _ = self.get_batch(task)
+        #logger.info("Data batch generation took: {}".format(time.time()-online_data_time))
 
+        learning_step_time = time.time()
         # target words to predict
         alen = torch.arange(len2.max(), dtype=torch.long, device=len2.device)
         pred_mask = (
@@ -583,3 +586,4 @@ class Trainer(object):
         self.n_equations += params.batch_size
         self.stats["processed_e"] += len1.size(0)
         self.stats["processed_w"] += (len1 + len2 - 2).sum().item()
+        #logger.info("Learning step took: {}".format(time.time()-learning_step_time))

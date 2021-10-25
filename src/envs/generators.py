@@ -355,6 +355,7 @@ class RandomRecurrence(Generator):
             length +=  self.params.n_predictions
         
         trees = []
+    
         if nb_ops is None: nb_ops = rng.randint(1, self.max_ops + 1, size=(self.dimension,))
         elif type(nb_ops)==int: nb_ops = [nb_ops]*self.dimension
             
