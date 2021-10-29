@@ -55,8 +55,6 @@ def check_hypothesis(eq):
 
     return eq
 
-def test_fn():
-    print("shiit")
 
 class Evaluator(object):
 
@@ -82,12 +80,14 @@ class Evaluator(object):
 
         # save statistics about generated data
         if params.export_data:
+            logger.info("export data")
             scores["total"] = self.trainer.total_samples
             return scores
 
         with torch.no_grad():
             for data_type in ["valid"]:
                 for task in params.tasks:
+                    logger.info("not export")
                     if params.beam_eval:
                         self.enc_dec_step_beam(data_type, task, scores)
                     else:
@@ -303,9 +303,10 @@ class Evaluator(object):
         for (x1, len1), (x2, len2), infos in iterator:
             
             if n_valid_per_info is None:
+                print("fick")
                 info_types=list(infos.keys()) 
                 first_key=info_types[0]
-                n_valid_per_info={info_type: torch.zeros((10000, params.beam_size), dtype=torch.long) for info_type in info_types}
+                n_valid_per_info={info_type: torch.zeros(10000, dtype=torch.long) for info_type in info_types}
                 n_total_per_info={info_type: torch.zeros(10000, dtype=torch.long) for info_type in info_types}
 
             # target words to predict
@@ -351,8 +352,8 @@ class Evaluator(object):
             # stats
             xe_loss += loss.item() * len(y)
             for info_type in infos.keys():
-                n_valid_per_info[info_type].index_add_(0, infos[info_type], valid)
-                n_total_per_info[info_type].index_add_(0, infos[info_type], torch.ones_like(infos[info_type]))
+                n_valid_per_info[info_type].index_add_(-1, infos[info_type], valid)
+                n_total_per_info[info_type].index_add_(-1, infos[info_type], torch.ones_like(infos[info_type]))
 
             # continue if everything is correct. if eval_verbose, perform
             # a full beam search, even on correct greedy generations

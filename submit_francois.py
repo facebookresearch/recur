@@ -21,7 +21,7 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "very_final"
+FOLDER_NAME = "final"
 
 def parse_args():
     classification_parser = classification.get_parser()
@@ -110,6 +110,9 @@ def main():
         args.dec_emb_dim = 512
         args.use_volta32 = True
         args.max_token_len=200
+        args.fp16=True
+        args.amp=2
+
         # args.optimizer = 'adam_inverse_sqrt,lr={}'.format(params['lr'])
         
         name = '_'.join(['{}_{}'.format(k,v) for k,v in params.items()])

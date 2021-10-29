@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from operator import length_hint
+#from turtle import degrees
 import numpy as np
 import math
 import copy
@@ -349,11 +351,9 @@ class RandomRecurrence(Generator):
 
         """prediction_points is a boolean which indicates whether we compute prediction points. By default we do not to save time. """
         if deg is None:    deg    = rng.randint(1, self.max_degree + 1)
-        if length is None: length = rng.randint(3*deg, self.max_len+1)
-
-        if prediction_points:
-            length +=  self.params.n_predictions
-        
+        if length is None: 
+            length = rng.randint(3*deg, self.max_len+1)
+    
         trees = []
     
         if nb_ops is None: nb_ops = rng.randint(1, self.max_ops + 1, size=(self.dimension,))
@@ -397,8 +397,12 @@ class RandomRecurrence(Generator):
 
         assert len(series)==max_recurrence_degree*self.dimension, "Problem with initial conditions"
 
+        sum_length = length
+        if prediction_points:
+            sum_length +=  self.params.n_predictions
+
         ##compute remaining points with given initial conditions
-        for i in range(max_recurrence_degree, length):
+        for i in range(sum_length):
             try:
                 vals = tree.val(series)
             except Exception as e:
@@ -417,8 +421,8 @@ class RandomRecurrence(Generator):
             series.extend(vals)
             
         if prediction_points:
-            series_input = series[:-self.params.n_predictions*self.dimension+1]
-            series_to_predict = series[-self.params.n_predictions*self.dimension:]
+            series_input = series[:-self.dimension*self.params.n_predictions]
+            series_to_predict = series[-self.dimension*self.params.n_predictions:]
         else:
             series_input = series
             series_to_predict = None
@@ -449,7 +453,6 @@ class RandomRecurrence(Generator):
 
     def evaluate_numerical(self, tgt, hyp):
         errors = []
-        
         for idx in self.chunks_idx(self.dimension, min=0, max=len(tgt)):
             try:
                 pred=[hyp[i] for i in idx]

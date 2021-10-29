@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 #
 
+from distutils.log import INFO
 from logging import getLogger
 import os
 import io
@@ -52,7 +53,7 @@ class RecurrenceEnvironment(object):
         else:
             self.input_encoder = encoders.IntegerSeries(params)
         self.input_words = SPECIAL_WORDS+sorted(list(set(self.input_encoder.symbols)))
-
+        self.output_numeric=self.params.output_numeric
         if self.params.output_numeric:
             self.output_encoder = encoders.RealSeries(params) if self.params.real_series else encoders.IntegerSeries(params)
             self.output_words = sorted(list(set(self.output_encoder.symbols)))
@@ -88,7 +89,7 @@ class RecurrenceEnvironment(object):
         sent = torch.LongTensor(lengths.max().item(), lengths.size(0)).fill_(
             self.pad_index
         )
-        assert lengths.min().item() > 2
+        #assert lengths.min().item() > 2
 
         sent[0] = self.eos_index
         for i, s in enumerate(sequences):
@@ -112,12 +113,13 @@ class RecurrenceEnvironment(object):
         else:
             return m.infix()
 
-    def gen_expr(self, train, all_input_length=False):
-        tree, series, predictions = self.generator.generate(rng=self.rng, 
+    def gen_expr(self, train, input_length_modulo=-1):
+        length=self.params.max_len if input_length_modulo!=-1 and not train else None
+        tree, series, predictions= self.generator.generate(rng=self.rng, 
                                                             prediction_points=self.params.output_numeric,
-                                                            all_input_length=all_input_length)
+                                                            length=length)
         if tree is None:
-            return None, None, None
+            return None, None, None, None
         
         if not train:
             ##TODO: add noise to predictions
@@ -136,8 +138,8 @@ class RecurrenceEnvironment(object):
 
         ending = np.array(series[-5:])
         gaps = abs(ending[1:]-ending[:-1])
-        if len(set(gaps))<2: return None, None, None # discard uninteresting series
-        
+        if len(set(gaps))<2: return None, None, None, None # discard uninteresting series            
+
         x = self.input_encoder.encode(series)
         if self.params.output_numeric:
             y = self.output_encoder.encode(predictions)
@@ -146,11 +148,50 @@ class RecurrenceEnvironment(object):
 
         max_token_len=self.params.max_token_len
         if max_token_len > 0 and (len(x) >= max_token_len or len(y) >= max_token_len):
-            return None, None, None
-        return x, y, tree
+            return None, None, None, None
+        
+        if input_length_modulo!=-1 and not train:
+            indexes_to_remove = [i*input_length_modulo for i in range(self.params.max_len//input_length_modulo+1)]
+        else:
+            indexes_to_remove = [0]
+
+        x, y = [], []
+        n_ops = tree.get_n_ops()
+        n_recurrence_degree = max(tree.get_recurrence_degrees())
+        info = {"n_input_points":[], "n_ops": [], "n_recurrence_degree": []}
+        for idx in indexes_to_remove:
+            if self.params.output_numeric:  ##TODO: need to remove this and retrain num-num
+                if idx==0:
+                    input_seq = series+predictions[:1]
+                elif idx==1:
+                    input_seq=series
+                else:
+                    input_seq=series[:-idx+1]
+            else:
+                input_seq=series[:-idx] if idx>0 else series
+            _x = self.input_encoder.encode(input_seq)
+            if self.params.output_numeric:
+                if idx>self.params.n_predictions:
+                    _predictions=series[-idx:-idx+self.params.n_predictions]
+                elif idx==self.params.n_predictions:
+                    _predictions=series[-idx:]
+                elif idx==0:
+                    _predictions=predictions
+                else:
+                    _predictions=series[-idx:]+predictions[:self.params.n_predictions-idx]
+                _y = self.output_encoder.encode(_predictions)
+            else:
+                _y = self.output_encoder.encode(tree)
+            x.append(_x)
+            y.append(_y)
+            info["n_input_points"].append(self.params.max_len-idx)
+            info["n_ops"].append(n_ops)
+            info["n_recurrence_degree"].append(n_recurrence_degree)
+
+        return x, y, tree, info
 
     def code_class(self, tree):
-        return tree.get_n_ops()
+        return {"ops": tree.get_n_ops()}
         
     def decode_class(self, nb_ops):
         return nb_ops
@@ -201,7 +242,7 @@ class RecurrenceEnvironment(object):
         )
 
     def create_test_iterator(
-        self, data_type, task, data_path, batch_size, params, size, ablation_input_length=False
+        self, data_type, task, data_path, batch_size, params, size, input_length_modulo
     ):
         """
         Create a dataset for this environment.
@@ -221,6 +262,8 @@ class RecurrenceEnvironment(object):
             ),
             size=size,
             type=data_type,
+            input_length_modulo=input_length_modulo
+
         )
         return DataLoader(
             dataset,
@@ -229,7 +272,6 @@ class RecurrenceEnvironment(object):
             num_workers=1,
             shuffle=False,
             collate_fn=dataset.collate_fn,
-            all_input_length=ablation_input_length
         )
 
     @staticmethod
@@ -242,7 +284,7 @@ class RecurrenceEnvironment(object):
                             help="Whether we learn to predict numeric values or a symbolic expression")
         
         # encoding
-        parser.add_argument("--real_series", type=bool_flag, default=True,
+        parser.add_argument("--real_series", type=bool_flag, default=False,
                             help="Whether to use real series rather than integer series")
         parser.add_argument("--dimension", type=int, default=1,
                             help="Number of variables")
@@ -277,7 +319,7 @@ class RecurrenceEnvironment(object):
         # evaluation
         parser.add_argument("--float_tolerance", type=float, default=0.001,
                             help="error tolerance for float results")
-        parser.add_argument("--more_tolerance", type=str, default="0.01,0.1", 
+        parser.add_argument("--more_tolerance", type=str, default="1e-10,1e-9,1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,0.0", 
                             help="additional tolerance limits")
         parser.add_argument("--n_predictions", type=int, default=5, 
                             help="number of next terms to predict")
@@ -285,7 +327,7 @@ class RecurrenceEnvironment(object):
 
 
 class EnvDataset(Dataset):
-    def __init__(self, env, task, train, params, path, size=None, type=None,all_input_length=False):
+    def __init__(self, env, task, train, params, path, size=None, type=None,input_length_modulo=-1):
         super(EnvDataset).__init__()
         self.env = env
         self.train = train
@@ -296,11 +338,11 @@ class EnvDataset(Dataset):
         self.global_rank = params.global_rank
         self.count = 0
         self.type = type
-        self.all_input_length=all_input_length
+        self.input_length_modulo=input_length_modulo
         assert task in RecurrenceEnvironment.TRAINING_TASKS
         assert size is None or not self.train
         assert not params.batch_load or params.reload_size > 0
-
+        self.remaining_data=0
         # batching
         self.num_workers = params.num_workers
         self.batch_size = params.batch_size
@@ -380,13 +422,13 @@ class EnvDataset(Dataset):
         """
         Collate samples into a batch.
         """
-        x, y, tree = zip(*elements)
-        code = [self.env.code_class(treei) for _,_,treei in zip(x, y, tree)]
+        x, y, _, infos = zip(*elements)
+        info_tensor = {info_type: torch.LongTensor([info[info_type] for info in infos]) for info_type in infos[0].keys()} #[self.env.code_class(treei) for _,_,treei in zip(x, y, tree)]
         x = [torch.LongTensor([self.env.input_word2id[w] for w in seq]) for seq in x]
         y = [torch.LongTensor([self.env.output_word2id[w] for w in seq]) for seq in y]
         x, x_len = self.env.batch_sequences(x)
         y, y_len = self.env.batch_sequences(y)
-        return (x, x_len), (y, y_len), torch.LongTensor(code)
+        return (x, x_len), (y, y_len), info_tensor
 
     def init_rng(self):
         """
@@ -458,26 +500,37 @@ class EnvDataset(Dataset):
         """
         Generate a sample.
         """
-        while True:
-            try:
-                if self.task == "recurrence":
-                    x,y,tree = self.env.gen_expr(self.train, all_input_length=self.all_input_length)
-                else:
-                    raise Exception(f"Unknown data type: {self.task}")
-                if x is None or y is None:
-                    continue # discard problematic series
-                break
-            except Exception as e:
-                if False: logger.error(
-                    'An unknown exception of type {0} occurred for worker {4} in line {1} for expression "{2}". Arguments:{3!r}.'.format(
-                        type(e).__name__,
-                        sys.exc_info()[-1].tb_lineno,
-                        "F",
-                        e.args,
-                        self.get_worker_id(),
-                    )
-                )
-                continue
-        self.count += 1
 
-        return x, y, tree
+        def select_index(dico, idx):
+            new_dico={}
+            for k in dico.keys():
+                new_dico[k]=dico[k][idx]
+            return new_dico
+
+        if self.remaining_data == 0:
+            while True:
+                try:
+                    if self.task == "recurrence":
+                        self._x,self._y,self.tree, self.infos = self.env.gen_expr(self.train, input_length_modulo=self.input_length_modulo)
+                    else:
+                        raise Exception(f"Unknown data type: {self.task}")
+                    if self._x is None or self._y is None:
+                        continue # discard problematic series
+                    break
+                except Exception as e:
+                    if False: logger.error(
+                        'An unknown exception of type {0} occurred for worker {4} in line {1} for expression "{2}". Arguments:{3!r}.'.format(
+                            type(e).__name__,
+                            sys.exc_info()[-1].tb_lineno,
+                            "F",
+                            e.args,
+                            self.get_worker_id(),
+                        )
+                    )
+                    continue
+            self.remaining_data=len(self._x)
+
+        x,y,tree,info=self._x[-self.remaining_data], self._y[-self.remaining_data], self.tree, select_index(self.infos,-self.remaining_data)
+        self.remaining_data-=1
+        self.count += 1
+        return x, y, tree, info

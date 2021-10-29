@@ -39,7 +39,7 @@ def get_parser():
                         help="Experiment name")
     parser.add_argument("--print_freq", type=int, default=100,
                         help="Print every n steps")
-    parser.add_argument("--save_periodic", type=int, default=100,
+    parser.add_argument("--save_periodic", type=int, default=25,
                         help="Save the model periodically (0 to disable)")
     parser.add_argument("--exp_id", type=str, default="",
                         help="Experiment ID")
@@ -90,7 +90,7 @@ def get_parser():
                         help="Optimizer (SGD / RMSprop / Adam, etc.)")
     parser.add_argument("--clip_grad_norm", type=float, default=5,
                         help="Clip gradients norm (0 to disable)")
-    parser.add_argument("--epoch_size", type=int, default=300000,
+    parser.add_argument("--epoch_size", type=int, default=1000000,
                         help="Epoch size / evaluation frequency")
     parser.add_argument("--max_epoch", type=int, default=100000,
                         help="Number of epochs")
@@ -149,7 +149,7 @@ def get_parser():
                         help="Type of noise added at test time")
     parser.add_argument("--eval_noise", type=float, default=0,
                         help="Size of valid and test samples")
-    parser.add_argument("--eval_only", type=bool_flag, default=False,
+    parser.add_argument("--eval_only", type=bool_flag, default=True,
                         help="Only run evaluations")
     parser.add_argument("--eval_from_exp", type=str, default="",
                         help="Path of experiment to use")
@@ -159,8 +159,8 @@ def get_parser():
                         help="Export evaluation details")
     parser.add_argument("--eval_verbose_print", type=bool_flag, default=False,
                         help="Print evaluation details")
-    parser.add_argument("--eval_ablation_input_length", type=bool_flag, default=False,
-                        help="Compute accuracy for all input lengths")
+    parser.add_argument("--eval_input_length_modulo", type=bool_flag, default=-1,
+                        help="Compute accuracy for all input lengths modulo X. -1 is equivalent to no ablation")
 
     # debug
     parser.add_argument("--debug_slurm", type=bool_flag, default=False,
@@ -179,7 +179,6 @@ def get_parser():
                         help="Windows version (no multiprocessing for eval)")
     parser.add_argument("--nvidia_apex", type=bool_flag, default=False,
                         help="NVIDIA version of apex")
-
     return parser
 
 
@@ -223,13 +222,14 @@ def main(params):
 
             # training steps
             for task_id in np.random.permutation(len(params.tasks)):
+                
                 task = params.tasks[task_id]
                 if params.export_data:
                     trainer.export_data(task)
                 else:
                     trainer.enc_dec_step(task)
                 trainer.iter()
-                #scores = evaluator.run_all_evals()
+                scores = evaluator.run_all_evals()
 
         logger.info("============ End of epoch %i ============" % trainer.epoch)
 

@@ -7,7 +7,6 @@
 
 from logging import getLogger
 #from .generators import operators_conv, Node
-
 from .recurrence import RecurrenceEnvironment
 
 logger = getLogger()
