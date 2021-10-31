@@ -160,7 +160,7 @@ class RecurrenceEnvironment(object):
         n_recurrence_degree = max(tree.get_recurrence_degrees())
         info = {"n_input_points":[], "n_ops": [], "n_recurrence_degree": []}
         for idx in indexes_to_remove:
-            if self.params.output_numeric:  ##TODO: need to remove this and retrain num-num
+            if self.params.output_numeric:
                 if idx==0:
                     input_seq = series+predictions[:1]
                 elif idx==1:

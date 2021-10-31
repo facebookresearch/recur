@@ -149,7 +149,7 @@ def get_parser():
                         help="Type of noise added at test time")
     parser.add_argument("--eval_noise", type=float, default=0,
                         help="Size of valid and test samples")
-    parser.add_argument("--eval_only", type=bool_flag, default=True,
+    parser.add_argument("--eval_only", type=bool_flag, default=False,
                         help="Only run evaluations")
     parser.add_argument("--eval_from_exp", type=str, default="",
                         help="Path of experiment to use")
