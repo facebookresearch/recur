@@ -57,9 +57,9 @@ class Trainer(object):
         # float16 / distributed (no AMP)
         assert params.amp >= 1 or not params.fp16
         assert params.amp >= 0 or params.accumulate_gradients == 1
-        assert not params.multi_gpu or params.amp == -1 or params.nvidia_apex
+        # assert not params.multi_gpu or params.amp == -1 or params.nvidia_apex
         assert not params.nvidia_apex or has_apex
-        if params.multi_gpu and params.amp == -1:
+        if params.multi_gpu: # and params.amp == -1:
             logger.info("Using nn.parallel.DistributedDataParallel ...")
             for k in self.modules.keys():
                 self.modules[k] = nn.parallel.DistributedDataParallel(
@@ -76,12 +76,12 @@ class Trainer(object):
         self.scaler = None
         if params.amp >= 0:
             self.init_amp()
-            if params.multi_gpu:
-                logger.info("Using apex.parallel.DistributedDataParallel ...")
-                for k in self.modules.keys():
-                    self.modules[k] = apex.parallel.DistributedDataParallel(
-                        self.modules[k], delay_allreduce=True
-                    )
+            # if params.multi_gpu:
+            #    logger.info("Using apex.parallel.DistributedDataParallel ...")
+            #    for k in self.modules.keys():
+            #        self.modules[k] = apex.parallel.DistributedDataParallel(
+            #            self.modules[k], delay_allreduce=True
+            #        )
 
         # stopping criterion used for early stopping
         if params.stopping_criterion != "":
