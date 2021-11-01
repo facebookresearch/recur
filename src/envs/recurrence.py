@@ -201,10 +201,10 @@ class RecurrenceEnvironment(object):
         eq_hyp = self.output_encoder.decode(hyp)
         if self.params.output_numeric:
             if eq_hyp is None or np.nan in eq_hyp:
-                return -1
+                return [-1 for _ in range(n_predictions)]
         else:
             if eq_hyp is None:
-                return -1
+                return [-1 for _ in range(n_predictions)]
         eq_tgt = self.output_encoder.decode(tgt)
         if self.params.output_numeric:
             error = self.generator.evaluate_numerical(tgt=eq_tgt, hyp=eq_hyp)

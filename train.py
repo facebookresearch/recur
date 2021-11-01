@@ -143,7 +143,7 @@ def get_parser():
                         help="Reload a checkpoint")
 
     # evaluation
-    parser.add_argument("--eval_size", type=int, default=10000,
+    parser.add_argument("--eval_size", type=int, default=10,
                         help="Size of valid and test samples")
     parser.add_argument("--eval_noise_type", type=str, default="additive", choices=["additive","multiplicative"],
                         help="Type of noise added at test time")
@@ -217,6 +217,7 @@ def main(params):
         logger.info("============ Starting epoch %i ... ============" % trainer.epoch)
 
         trainer.n_equations = 0
+        scores = evaluator.run_all_evals()
 
         while trainer.n_equations < trainer.epoch_size:
 
