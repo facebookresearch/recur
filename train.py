@@ -229,8 +229,6 @@ def main(params):
                 else:
                     trainer.enc_dec_step(task)
                 trainer.iter()
-                scores = evaluator.run_all_evals()
-
         logger.info("============ End of epoch %i ============" % trainer.epoch)
 
         # evaluate perplexity
