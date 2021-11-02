@@ -207,7 +207,7 @@ class RecurrenceEnvironment(object):
                 return [-1 for _ in range(n_predictions)]
         eq_tgt = self.output_encoder.decode(tgt)
         if self.params.output_numeric:
-            error = self.generator.evaluate_numerical(tgt=eq_tgt, hyp=eq_hyp)
+            error = self.generator.evaluate_numerical(tgt=eq_tgt, hyp=eq_hyp)                    
         else:
             if eq_tgt is None: # When we don't have the ground truth, test on last terms
                 error = self.generator.evaluate_without_target(src, eq_hyp, n_predictions)
@@ -286,6 +286,9 @@ class RecurrenceEnvironment(object):
         # encoding
         parser.add_argument("--real_series", type=bool_flag, default=False,
                             help="Whether to use real series rather than integer series")
+        parser.add_argument("--operators_to_remove", type=str, default="",
+                            help="Which operator to remove")
+                            
         parser.add_argument("--dimension", type=int, default=1,
                             help="Number of variables")
         parser.add_argument("--float_precision", type=int, default=3,

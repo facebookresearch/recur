@@ -41,6 +41,8 @@ operators_int = {
     'mod': 2,
     'abs': 1,
     'sqr': 1,
+    'step': 1,
+    'sign': 1,
 }
 
 math_constants = ['e','pi','euler_gamma']
@@ -142,6 +144,11 @@ class Node():
             return (self.children[0].val(series))**2
         if self.value == 'abs':
             return abs(self.children[0].val(series))
+        if self.value == 'sign':
+            return int(self.children[0].val(series)>=0)*2-1
+        if self.value == "step":
+            x = self.children[0].val(series)
+            return x if x>0 else 0
         else:
             return getattr(np,self.value)(self.children[0].val(series))
         
@@ -223,10 +230,14 @@ class RandomRecurrence(Generator):
         
         if params.real_series:
             self.max_number = 10**(params.max_exponent+params.float_precision)
-            self.operators = operators_real
+            self.operators = copy.deepcopy(operators_real)
         else:
             self.max_number = params.max_number
-            self.operators = operators_int
+            self.operators = copy.deepcopy(operators_int)
+            if params.operators_to_remove != "":
+                for operator in self.params.operators_to_remove.split(","):
+                    del self.operators[operator]
+
         self.unaries = [o for o in self.operators.keys() if self.operators[o] == 1]
         self.binaries = [o for o in self.operators.keys() if self.operators[o] == 2]
         self.unary = len(self.unaries) > 0
@@ -473,7 +484,7 @@ class RandomRecurrence(Generator):
             src.extend(pred)
             errors.append(max([abs(float(p-t)/float(t+1e-100)) for p,t in zip(pred, true)]))
         return errors
-        
-
-
-
+    
+    def evaluate_classical_baselines(self, src, hyp):
+        raise NotImplementedError
+     

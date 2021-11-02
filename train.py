@@ -143,7 +143,7 @@ def get_parser():
                         help="Reload a checkpoint")
 
     # evaluation
-    parser.add_argument("--eval_size", type=int, default=100,
+    parser.add_argument("--eval_size", type=int, default=10000,
                         help="Size of valid and test samples")
     parser.add_argument("--eval_noise_type", type=str, default="additive", choices=["additive","multiplicative"],
                         help="Type of noise added at test time")
@@ -223,7 +223,6 @@ def main(params):
 
             # training steps
             for task_id in np.random.permutation(len(params.tasks)):
-                
                 task = params.tasks[task_id]
                 if params.export_data:
                     trainer.export_data(task)
