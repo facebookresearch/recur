@@ -442,7 +442,7 @@ class RandomRecurrence(Generator):
                 errors.append(max([abs(float(p-t)/float(t+1e-100)) for p,t in zip(pred, true)]))
             except Exception as e:
                 print(e)
-                return -1
+                return [-1 for _ in range(n_predictions)]
         return errors        
 
     def chunks_idx(self, step, min, max):
@@ -453,13 +453,14 @@ class RandomRecurrence(Generator):
 
     def evaluate_numerical(self, tgt, hyp):
         errors = []
-        for idx in self.chunks_idx(self.dimension, min=0, max=len(tgt)):
+        iterator = self.chunks_idx(self.dimension, min=0, max=len(tgt))
+        for idx in iterator:
             try:
                 pred=[hyp[i] for i in idx]
                 true=[tgt[i] for i in idx]
                 errors.append(max([abs(float(p-t)/float(t+1e-100)) for p,t in zip(pred, true)]))
             except IndexError or TypeError:
-                return -1
+                return [-1 for _ in range(sum(1 for x in iterator))]
         return errors 
 
     def evaluate_without_target(self, src, hyp, n_predictions=3):

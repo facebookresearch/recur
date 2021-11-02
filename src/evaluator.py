@@ -233,6 +233,8 @@ class Evaluator(object):
         """
         Encoding / decoding step with beam generation and SymPy check.
         """
+
+        n_infos_prior = 50
         params = self.params
         env = self.env
         max_beam_length = self.params.max_output_len
@@ -296,18 +298,19 @@ class Evaluator(object):
         # stats
         xe_loss = 0
         n_perfect_match = 0
+        n_valid = 0
         n_correct = 0
         n_valid_per_info,n_total_per_info = None,None
         n_valid_additional = torch.zeros(1+len(env.additional_tolerance))
         n_valid_per_n_predictions= torch.zeros(params.n_predictions,dtype=torch.long)
-
+        n_total=0
+        
         for (x1, len1), (x2, len2), infos in iterator:
             if n_valid_per_info is None:
                 info_types=list(infos.keys()) 
                 first_key=info_types[0]
-                n_valid_per_info={info_type: torch.zeros(10000, dtype=torch.long) for info_type in info_types}
-                n_total_per_info={info_type: torch.zeros(10000, dtype=torch.long) for info_type in info_types}
-
+                n_valid_per_info={info_type: torch.zeros(n_infos_prior, dtype=torch.long) for info_type in info_types}
+                n_total_per_info={info_type: torch.zeros(n_infos_prior, dtype=torch.long) for info_type in info_types}
 
 
             # target words to predict
@@ -321,9 +324,10 @@ class Evaluator(object):
             # cuda
             x1_, len1_, x2, len2, y = to_cuda(x1, len1, x2, len2, y)
             bs = len(len1)
+            n_total+=bs
 
             valid_additional_per_minibatch = torch.zeros(1+len(env.additional_tolerance), bs, dtype=int)
-            valid_per_info_type_per_minibatch={info_type: torch.zeros(10000, bs, dtype=torch.long) for info_type in info_types}
+            valid_per_info_type_per_minibatch={info_type: torch.zeros(n_infos_prior, bs, dtype=torch.long) for info_type in info_types}
             valid_per_n_predictions_per_minibatch=torch.zeros(params.n_predictions, bs, dtype=torch.long)
 
             # forward
@@ -343,8 +347,9 @@ class Evaluator(object):
             # correct outputs per sequence / valid top-1 predictions
             t = torch.zeros_like(pred_mask, device=y.device)
             t[pred_mask] += word_scores.max(1)[1] == y
-            valid = (t.sum(0) == len2 - 1).cpu().long()
-            n_perfect_match += valid.sum().item()
+            perfect_match = (t.sum(0) == len2 - 1).cpu().long() ##TODO: check here
+            valid = perfect_match.clone()
+            n_perfect_match += perfect_match.sum().item()
 
             # save evaluation details
             beam_log = {}
@@ -357,7 +362,10 @@ class Evaluator(object):
             # stats
             xe_loss += loss.item() * len(y)
             for info_type in infos.keys():
-                valid_per_info_type_per_minibatch[info_type].index_add_(0, infos[info_type], valid)
+                infos_matrix=torch.zeros((n_infos_prior, bs)).long()
+                for elem in range(bs):
+                    infos_matrix[infos[info_type][elem].item(),elem]=perfect_match[elem]
+                valid_per_info_type_per_minibatch[info_type] += infos_matrix
                 n_total_per_info[info_type].index_add_(0, infos[info_type], torch.ones_like(infos[info_type]))
 
             # continue if everything is correct. if eval_verbose, perform
@@ -388,7 +396,7 @@ class Evaluator(object):
             # if eval_verbose < 2, no beam search on equations solved greedily
             inputs = []
             for i in range(len(generations)):
-                if valid[i] and params.eval_verbose < 2:
+                if perfect_match[i] and params.eval_verbose < 2:
                     continue
                 for j, (score, hyp) in enumerate(
                     sorted(generations[i].hyp, key=lambda x: x[0], reverse=True)
@@ -422,7 +430,7 @@ class Evaluator(object):
 
                 # select hypotheses associated to current equation
                 gens = sorted([o for o in outputs if o["i"] == i], key=lambda x: x["j"])
-                assert (len(gens) == 0) == (valid[i] and params.eval_verbose < 2) and (
+                assert (len(gens) == 0) == (perfect_match[i] and params.eval_verbose < 2) and (
                     i in beam_log
                 ) == valid[i]
                 if len(gens) == 0:
@@ -447,22 +455,28 @@ class Evaluator(object):
                     # if hypothesis is correct, and we did not find a correct one before
                     error = gen["error"]
                     error_infty = max(error)
-                    is_valid = error_infty >= 0.0 and error_infty < env.float_tolerance
-                    if error_infty >= 0.0 and not valid[i]:
+                
+
+                    if error_infty >= 0.0 and valid[i]!=1:
                         correct[i] = 1
                         for k, tol in enumerate(env.additional_tolerance):
                             if error_infty < tol:
                                 valid_additional_per_minibatch[k,i] = 1
+
                         for k in range(params.n_predictions):
-                            valid_per_n_predictions_per_minibatch[k,i]=int(max(error[:k+1])<env.float_tolerance)
+                            error_infty_k = max(error[:k+1])
+                            valid_per_n_predictions_per_minibatch[k,i]=int(error_infty_k<env.float_tolerance)
+
                         if error_infty < env.float_tolerance:
                             for info_type in infos.keys():
                                 valid_per_info_type_per_minibatch[info_type][infos[info_type][i],i]= 1
                             valid[i] = 1
+
                     # update beam log
-                    beam_log[i]["hyps"].append((gen["hyp"], gen["score"], is_valid))
+                    beam_log[i]["hyps"].append((gen["hyp"], gen["score"], valid))
 
             n_correct += correct.sum().item()
+            n_valid+=valid.sum().item()
             n_valid_additional += valid_additional_per_minibatch.sum(1)
             n_valid_per_n_predictions += valid_per_n_predictions_per_minibatch.sum(1)
             for info_type in info_types:
@@ -484,43 +498,39 @@ class Evaluator(object):
             logger.info(f"Evaluation results written in {eval_path}")
 
         # log
-        n_valid = n_valid_per_info[first_key]
-        n_total = n_total_per_info[first_key]
-        _n_valid = n_valid.sum().item()
-        _n_total = n_total.sum().item()
         logger.info(
-            f"{_n_valid}/{_n_total} ({100. * _n_valid / _n_total}%) "
+            f"{n_valid}/{n_total} ({100. * n_valid / n_total}%) "
             f"equations were evaluated correctly."
         )
 
         # compute perplexity and prediction accuracy
-        assert _n_total == eval_size
-        scores[f"{data_type}_{task}_xe_loss"] = xe_loss / _n_total
-        scores[f"{data_type}_{task}_perfect"] = 100.0 * n_perfect_match / _n_total
-        scores[f"{data_type}_{task}_correct"] = 100.0 * (n_perfect_match + n_correct) / _n_total
-        scores[f"{data_type}_{task}_beam_acc"]= 100.0 * _n_valid / _n_total
+        #assert n_total == eval_size
+        scores[f"{data_type}_{task}_xe_loss"] = xe_loss / n_total
+        scores[f"{data_type}_{task}_perfect"] = 100.0 * n_perfect_match / n_total
+        scores[f"{data_type}_{task}_correct"] = 100.0 * (n_perfect_match+n_correct) / n_total
+        scores[f"{data_type}_{task}_beam_acc"]= 100.0 * n_valid / n_total
         
         for i in range(len(env.additional_tolerance)):
             scores[f"{data_type}_{task}_additional_{i+1}"] = (
-                100.0 * (n_perfect_match + n_valid_additional[i].item()) / _n_total
+                100.0 * (n_perfect_match+n_valid_additional[i].item()) / n_total
             )
         for i in range(params.n_predictions):
-            scores[f"{data_type}_{task}_n_predictions_{i+1}"] = (
-                100.0 * (n_perfect_match + n_valid_per_n_predictions[i].item()) / _n_total
+            scores[f"{data_type}_{task}_beam_acc_n_predictions_{i+1}"] = (
+                100.0 * (n_perfect_match+n_valid_per_n_predictions[i].item()) / n_total
             )
 
         # per class perplexity and prediction accuracy
         for info_type in info_types:
-            n_valid = n_valid_per_info[info_type]
-            n_total = n_total_per_info[info_type]
-            for i in range(len(n_total)):
-                if n_total[i].item() == 0:
+            n_valid_info = n_valid_per_info[info_type]
+            n_total_info = n_total_per_info[info_type]
+            for i in range(n_infos_prior):
+                if n_total_info[i].item() == 0:
                     continue
-                e = env.decode_class(i)
-                logger.info(
-                    f"{e} operators: {n_valid[i].sum().item()} / {n_total[i].item()} "
-                    f"({100. * n_valid[i].sum().item() / max(n_total[i].item(), 1)}%)"
-                )
-                scores[f"{data_type}_{task}_beam_acc_{info_type}_{e}"] = (
-                    100.0 * n_valid[i].sum().item() / max(n_total[i].item(), 1)
+                #e = env.decode_class(i)
+                #logger.info(
+                #    f"{e} operators: {n_valid_info[i].item()} / {n_total_info[i].item()} "
+                #    f"({100. * n_valid_info[i].item() / max(n_total_info[i].item(), 1)}%)"
+                #)
+                scores[f"{data_type}_{task}_beam_acc_{info_type}_{i}"] = (
+                    100.0 * (n_valid_info[i].item()) / n_total_info[i].item()
                 )
