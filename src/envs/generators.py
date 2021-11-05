@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from ast import parse
 from operator import length_hint
 #from turtle import degrees
 import numpy as np
@@ -367,9 +368,15 @@ class RandomRecurrence(Generator):
     
         trees = []
     
-        if nb_ops is None: nb_ops = rng.randint(1, self.max_ops + 1, size=(self.dimension,))
-        elif type(nb_ops)==int: nb_ops = [nb_ops]*self.dimension
-            
+        if nb_ops is None:
+            nb_ops_probas=np.ones((self.dimension,self.max_ops))/self.max_ops
+        elif type(nb_ops)==int:
+            nb_ops_probas=np.zeros((self.dimension,self.max_ops))
+            nb_ops_probas[:,nb_ops-1]=1.0
+        else:
+            nb_ops_probas=nb_ops
+        nb_ops=[rng.choice(a=[i+1 for i in range(self.max_ops)], p=nb_ops_probas[dim]) for dim in range(self.dimension)]
+
         for i in range(self.dimension):
             trees.append(self.generate_tree(rng, nb_ops[i],deg))
         tree = NodeList(trees)
@@ -387,7 +394,7 @@ class RandomRecurrence(Generator):
             dim_to_compute = [dim for dim in range(self.dimension)  if degree>=recurrence_degrees[dim]]
             try:
                 next_values = tree.val(series,dim_to_compute=dim_to_compute)
-            except Exception as e:
+            except:
                 #print(e, "degree: {}".format(degree), series, tree.infix())
                 return None, None, None
             for dim in range(self.dimension):
@@ -398,7 +405,7 @@ class RandomRecurrence(Generator):
                 return None, None, None
             try:
                 next_values_array = np.array(next_values, dtype=np.float)
-            except Exception as e:
+            except:
                 print(tree, next_values)
                 return None, None, None
             
@@ -416,7 +423,7 @@ class RandomRecurrence(Generator):
         for i in range(sum_length):
             try:
                 vals = tree.val(series)
-            except Exception as e:
+            except:
                 #print(e, series, tree.infix())
                 return None, None, None
             if any([abs(x)>self.max_number for x in vals]): 
@@ -424,7 +431,7 @@ class RandomRecurrence(Generator):
 
             try:
                 vals_array = np.array(vals, dtype=np.float)
-            except Exception as e:
+            except:
                 print(tree, vals)
                 return None, None, None
             if np.any(np.isnan(vals_array)): 
@@ -451,8 +458,7 @@ class RandomRecurrence(Generator):
                 true = tgt.val(src_tgt, deterministic=True)
                 src_tgt.extend(true)
                 errors.append(max([abs(float(p-t)/float(t+1e-100)) for p,t in zip(pred, true)]))
-            except Exception as e:
-                print(e)
+            except:
                 return [-1 for _ in range(n_predictions)]
         return errors        
 
@@ -470,7 +476,7 @@ class RandomRecurrence(Generator):
                 pred=[hyp[i] for i in idx]
                 true=[tgt[i] for i in idx]
                 errors.append(max([abs(float(p-t)/float(t+1e-100)) for p,t in zip(pred, true)]))
-            except IndexError or TypeError:
+            except:
                 return [-1 for _ in range(sum(1 for x in iterator))]
         return errors 
 
@@ -479,10 +485,13 @@ class RandomRecurrence(Generator):
         targets = src[-n:]
         src = src[:-n]
         for i in range(n_predictions):
-            pred = hyp.val(src)
-            true = targets[i]
-            src.extend(pred)
-            errors.append(max([abs(float(p-t)/float(t+1e-100)) for p,t in zip(pred, true)]))
+            try:
+                pred = hyp.val(src)
+                true = targets[i]
+                src.extend(pred)
+                errors.append(max([abs(float(p-t)/float(t+1e-100)) for p,t in zip(pred, true)]))
+            except:
+                return [-1 for _ in range(n_predictions)]
         return errors
     
     def evaluate_classical_baselines(self, src, hyp):

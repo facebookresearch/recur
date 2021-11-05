@@ -80,6 +80,9 @@ def get_parser():
                         help="Use sinusoidal embeddings")
 
     # training parameters
+    
+    parser.add_argument("--curriculum_n_ops", type=bool, default=False,
+                    help="Whether we use a curriculum strategy for the number of ops during training")
     parser.add_argument("--env_base_seed", type=int, default=-1,
                         help="Base seed for environments (-1 to use timestamp seed)")
     parser.add_argument("--batch_size", type=int, default=256,
@@ -199,6 +202,7 @@ def main(params):
     # build environment / modules / trainer / evaluator
     if params.batch_size_eval is None: params.batch_size_eval = int(1.5*params.batch_size)
     env = build_env(params)
+
     modules = build_modules(env, params)
     trainer = Trainer(modules, env, params)
     evaluator = Evaluator(trainer)
@@ -212,12 +216,21 @@ def main(params):
         exit()
 
     # training
+    if params.reload_data!="":
+        data_types = ["valid{}".format(i) for i in range(1,len(trainer.data_path["recurrence"]))]
+    else:
+        data_types = ["valid1"]
+
+    evaluator.set_env_copies(data_types)
+    scores = evaluator.run_all_evals(data_types)
+    if params.is_master:
+        logger.info("__log__:%s" % json.dumps(scores))
+
     for _ in range(params.max_epoch):
 
         logger.info("============ Starting epoch %i ... ============" % trainer.epoch)
 
         trainer.n_equations = 0
-        scores = evaluator.run_all_evals()
 
         while trainer.n_equations < trainer.epoch_size:
 
@@ -232,13 +245,20 @@ def main(params):
         logger.info("============ End of epoch %i ============" % trainer.epoch)
 
         # evaluate perplexity
-        scores = evaluator.run_all_evals()
-
-        # print / JSON log
-        # for k, v in scores.items():
-        #    logger.info("%s -> %.6f" % (k, v))
+        scores = evaluator.run_all_evals(data_types)
         if params.is_master:
             logger.info("__log__:%s" % json.dumps(scores))
+            
+        if params.curriculum_n_ops:
+            accuracy_per_n_ops = {measure.split("_")[-1]: acc for measure, acc in scores.items() if "n_ops" in measure}
+            accuracy_per_n_ops = {int(key):accuracy_per_n_ops[key] for key in sorted(accuracy_per_n_ops.keys())}
+            accuracy_values = np.array(list(accuracy_per_n_ops.values()))
+            assert accuracy_values.shape[0] == params.max_ops, "Not all ops where found in the evaluation dataset"
+            probabilities = 1.-accuracy_values
+            probabilities /= probabilities.sum()
+            probabilities = (1. - params.minimum_op_probability) * probabilities + params.minimum_op_probability
+            trainer.set_new_train_iterator_params({"nb_ops_prob": probabilities})
+    
 
         # end of epoch
         trainer.save_best_model(scores)

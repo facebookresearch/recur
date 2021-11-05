@@ -4,7 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 #
-
+import json
 import os
 import io
 import sys
@@ -15,7 +15,6 @@ import numpy as np
 import torch
 from torch import nn
 from torch.nn.utils import clip_grad_norm_
-
 from .optim import get_optimizer
 from .utils import to_cuda
 
@@ -40,6 +39,7 @@ class Trainer(object):
         self.modules = modules
         self.params = params
         self.env = env
+
 
         # epoch / iteration size
         self.epoch_size = params.epoch_size
@@ -138,27 +138,34 @@ class Trainer(object):
         # reload exported data
         if params.reload_data != "":
             print(params.reload_data)
-            assert params.num_workers in [0, 1]
+            #assert params.num_workers in [0, 1] ##TODO: why have that?
             assert params.export_data is False
             s = [x.split(",") for x in params.reload_data.split(";") if len(x) > 0]
             assert (
                 len(s) >= 1
-                and all(len(x) == 4 for x in s)
-                and len(s) == len(set([x[0] for x in s]))
+                #and all(len(x) == 4 for x in s) ##if we want multiple datasets
+                #and len(s) == len(set([x[0] for x in s]))
             )
             self.data_path = {
-                task: (train_path, valid_path, test_path)
-                for task, train_path, valid_path, test_path in s
+                task: (train_path if train_path!="" else None, 
+                       valid_path if valid_path!="" else None, 
+                       *(test_paths.split(":") if test_paths!="" else None))
+                for task, train_path, valid_path, test_paths in s
             }
-            assert all(
-                all(os.path.isfile(path) for path in paths)
-                for paths in self.data_path.values()
-            )
+           
+            print(self.data_path)
+
+
+            
+            #assert all(
+            #    all(os.path.isfile(path) for path in paths)
+            #    for paths in self.data_path.values()
+            #)
             for task in self.env.TRAINING_TASKS:
                 assert (task in self.data_path) == (task in params.tasks)
         else:
             self.data_path = None
-
+        
         # create data loaders
         if not params.eval_only:
             if params.env_base_seed < 0:
@@ -167,6 +174,16 @@ class Trainer(object):
                 task: iter(self.env.create_train_iterator(task, self.data_path, params))
                 for task in params.tasks
             }
+
+    def set_new_train_iterator_params(self, **args):
+        params=self.params 
+        if params.env_base_seed < 0:
+                params.env_base_seed = np.random.randint(1_000_000_000)
+        self.dataloader = {
+            task: iter(self.env.create_train_iterator(task, self.data_path, params, **args))
+            for task in params.tasks
+        }
+        return
 
     def set_parameters(self):
         """
@@ -500,15 +517,27 @@ class Trainer(object):
         Export data to the disk.
         """
         env = self.env
-        (x1, len1), (x2, len2), _ = self.get_batch(task)
+        (x1, len1), (x2, len2), trees, infos = self.get_batch(task)
+        for info in infos:
+            infos[info]=list(map(str, infos[info].tolist()))
+
+        def get_dictionary_slice(idx, dico):
+            x = {}
+            for d in dico:
+                x[d]=dico[d][idx]
+            return x
+
         for i in range(len(len1)):
             # prefix
-            prefix1 = [env.id2word[wid] for wid in x1[1: len1[i] - 1, i].tolist()]
-            prefix2 = [env.id2word[wid] for wid in x2[1: len2[i] - 1, i].tolist()]
+            prefix1 = [env.input_id2word[wid] for wid in x1[1: len1[i] - 1, i].tolist()]
+            prefix2 = [env.output_id2word[wid] for wid in x2[1: len2[i] - 1, i].tolist()]
             # save
             prefix1_str = " ".join(prefix1)
             prefix2_str = " ".join(prefix2)
-            self.file_handler_prefix.write(f"{prefix1_str}={prefix2_str}\n")
+            tree_str = trees[i].infix()
+            output = {"x1": prefix1_str, "x2": prefix2_str, "tree":tree_str, **get_dictionary_slice(i, infos)}
+            self.file_handler_prefix.write(json.dumps(output) + "\n")
+            #self.file_handler_prefix.write(f"{prefix1_str}={prefix2_str}\n")
             self.file_handler_prefix.flush()
             # self.EQUATIONS[(prefix1_str, prefix2_str)] = self.EQUATIONS.get((prefix1_str, prefix2_str), 0) + 1
 
@@ -530,7 +559,7 @@ class Trainer(object):
 
         # batch
         #online_data_time = time.time()
-        (x1, len1), (x2, len2), _ = self.get_batch(task)
+        (x1, len1), (x2, len2), _, _ = self.get_batch(task)
         #logger.info("Data batch generation took: {}".format(time.time()-online_data_time))
 
         learning_step_time = time.time()

@@ -11,6 +11,7 @@ import os
 import io
 import sys
 import copy
+import json
 
 # import math
 import numpy as np
@@ -113,11 +114,12 @@ class RecurrenceEnvironment(object):
         else:
             return m.infix()
 
-    def gen_expr(self, train, input_length_modulo=-1):
+    def gen_expr(self, train, input_length_modulo=-1,nb_ops=None):
         length=self.params.max_len if input_length_modulo!=-1 and not train else None
         tree, series, predictions= self.generator.generate(rng=self.rng, 
-                                                            prediction_points=self.params.output_numeric,
-                                                            length=length)
+                                                           nb_ops=nb_ops,
+                                                           prediction_points=self.params.output_numeric,
+                                                           length=length)
         if tree is None:
             return None, None, None, None
         
@@ -199,13 +201,14 @@ class RecurrenceEnvironment(object):
     def check_prediction(self, src, tgt, hyp, n_predictions=5):
         src = self.input_encoder.decode(src)
         eq_hyp = self.output_encoder.decode(hyp)
+        eq_tgt = self.output_encoder.decode(tgt)
+
         if self.params.output_numeric:
-            if eq_hyp is None or np.nan in eq_hyp:
+            if eq_hyp is None or np.nan in eq_hyp or len(eq_tgt)!=len(eq_hyp):
                 return [-1 for _ in range(n_predictions)]
         else:
             if eq_hyp is None:
                 return [-1 for _ in range(n_predictions)]
-        eq_tgt = self.output_encoder.decode(tgt)
         if self.params.output_numeric:
             error = self.generator.evaluate_numerical(tgt=eq_tgt, hyp=eq_hyp)                    
         else:
@@ -215,18 +218,18 @@ class RecurrenceEnvironment(object):
                 error = self.generator.evaluate(src, eq_tgt, eq_hyp, n_predictions)
         return error
 
-    def create_train_iterator(self, task, data_path, params):
+    def create_train_iterator(self, task, data_path, params, **args):
         """
         Create a dataset for this environment.
         """
         logger.info(f"Creating train iterator for {task} ...")
-
         dataset = EnvDataset(
             self,
             task,
             train=True,
             params=params,
             path=(None if data_path is None else data_path[task][0]),
+            **args
         )
         return DataLoader(
             dataset,
@@ -247,7 +250,6 @@ class RecurrenceEnvironment(object):
         """
         Create a dataset for this environment.
         """
-        assert data_type in ["valid", "test"]
         logger.info(f"Creating {data_type} iterator for {task} ...")
 
         dataset = EnvDataset(
@@ -258,7 +260,7 @@ class RecurrenceEnvironment(object):
             path=(
                 None
                 if data_path is None
-                else data_path[task][1 if data_type == "valid" else 2]
+                else data_path[task][int(data_type[5:])]
             ),
             size=size,
             type=data_type,
@@ -308,6 +310,8 @@ class RecurrenceEnvironment(object):
                             help="Number of elements in the sequence the next term depends on")
         parser.add_argument("--max_ops", type=int, default=6,
                             help="Number of unary or binary operators")
+        parser.add_argument("--minimum_op_probability", type=int, default=0.05,
+                            help="Minimum probability of generating an example with given n_op, for our curriculum strategy")
         parser.add_argument("--max_len", type=int, default=30,
                             help="Max number of terms in the series")
         parser.add_argument("--init_scale", type=int, default=10,
@@ -330,7 +334,7 @@ class RecurrenceEnvironment(object):
 
 
 class EnvDataset(Dataset):
-    def __init__(self, env, task, train, params, path, size=None, type=None,input_length_modulo=-1):
+    def __init__(self, env, task, train, params, path, size=None, type=None,input_length_modulo=-1,nb_ops_prob=None):
         super(EnvDataset).__init__()
         self.env = env
         self.train = train
@@ -342,6 +346,7 @@ class EnvDataset(Dataset):
         self.count = 0
         self.type = type
         self.input_length_modulo=input_length_modulo
+        self.nb_ops_prob = nb_ops_prob
         assert task in RecurrenceEnvironment.TRAINING_TASKS
         assert size is None or not self.train
         assert not params.batch_load or params.reload_size > 0
@@ -361,7 +366,7 @@ class EnvDataset(Dataset):
 
         # generation, or reloading from file
         if path is not None:
-            assert os.path.isfile(path)
+            assert os.path.isfile(path), "{} not found".format(path)
             if params.batch_load and self.train:
                 self.load_chunk()
             else:
@@ -370,16 +375,20 @@ class EnvDataset(Dataset):
                     # either reload the entire file, or the first N lines
                     # (for the training set)
                     if not train:
-                        lines = [line.rstrip() for line in f]
+                        lines = []
+                        for i, line in enumerate(f):
+                            lines.append(json.loads(line.rstrip()))
                     else:
                         lines = []
                         for i, line in enumerate(f):
                             if i == params.reload_size:
                                 break
                             if i % params.n_gpu_per_node == params.local_rank:
-                                lines.append(line.rstrip())
-                self.data = [xy.split("=") for xy in lines]
-                self.data = [xy for xy in self.data if len(xy) == 2]
+                                #lines.append(line.rstrip())
+                                lines.append(json.loads(line.rstrip()))
+                #self.data = [xy.split("=") for xy in lines]
+                #self.data = [xy for xy in self.data if len(xy) == 3]
+                self.data=lines
                 logger.info(f"Loaded {len(self.data)} equations from the disk.")
 
         # dataset size: infinite iterator for train, finite for valid / test
@@ -425,13 +434,13 @@ class EnvDataset(Dataset):
         """
         Collate samples into a batch.
         """
-        x, y, _, infos = zip(*elements)
+        x, y, tree, infos = zip(*elements)
         info_tensor = {info_type: torch.LongTensor([info[info_type] for info in infos]) for info_type in infos[0].keys()} #[self.env.code_class(treei) for _,_,treei in zip(x, y, tree)]
         x = [torch.LongTensor([self.env.input_word2id[w] for w in seq]) for seq in x]
         y = [torch.LongTensor([self.env.output_word2id[w] for w in seq]) for seq in y]
         x, x_len = self.env.batch_sequences(x)
         y, y_len = self.env.batch_sequences(y)
-        return (x, x_len), (y, y_len), info_tensor
+        return (x, x_len), (y, y_len), tree, info_tensor
 
     def init_rng(self):
         """
@@ -493,11 +502,22 @@ class EnvDataset(Dataset):
             else:
                 index = self.env.rng.randint(len(self.data))
                 idx = index
-        x, y = self.data[idx]
-        x = x.split()
-        y = y.split()
-        assert len(x) >= 1 and len(y) >= 1
-        return x, y
+        x = self.data[idx]
+        x1 = x["x1"].split(" ")
+        x2 = x["x2"].split(" ")
+        tree_str = x["tree"]
+        tree = tree_str  ##TODO : if we want the representation not infix
+        infos = {}
+        for col in x:
+            if col not in ["x1", "x2", "tree"]:
+                infos[col]=int(x[col])
+        return x1, x2, tree, infos 
+        
+        #x, y = self.data[idx]
+        #x = x.split()
+        #y = y.split()
+        #assert len(x) >= 1 and len(y) >= 1
+        #return x, y
 
     def generate_sample(self):
         """
@@ -514,7 +534,7 @@ class EnvDataset(Dataset):
             while True:
                 try:
                     if self.task == "recurrence":
-                        self._x,self._y,self.tree, self.infos = self.env.gen_expr(self.train, input_length_modulo=self.input_length_modulo)
+                        self._x,self._y,self.tree, self.infos = self.env.gen_expr(self.train, input_length_modulo=self.input_length_modulo, nb_ops=self.nb_ops_prob)
                     else:
                         raise Exception(f"Unknown data type: {self.task}")
                     if self._x is None or self._y is None:

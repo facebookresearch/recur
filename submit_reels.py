@@ -21,7 +21,7 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "oeis"
+FOLDER_NAME = "reals"
 
 def parse_args():
     classification_parser = classification.get_parser()
@@ -87,13 +87,12 @@ def main():
     shared_folder = get_shared_folder()
 
     grid = {
-        "real_series": [False],
-        "output_numeric": [False],
+        "real_series": [True],
+        "output_numeric": [False, True],
         "dimension": [1,2,3],
         "prob_rand": [0.05, 0.0],
         "batch_size": [64],
         "optimizer":["adam_inverse_sqrt,lr=0.0002,warmup_updates=10000"],
-        "operators_to_remove": ["", "step,sign"]
     }
 
     def dict_product(d):

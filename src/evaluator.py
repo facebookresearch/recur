@@ -11,6 +11,7 @@ from concurrent.futures import ProcessPoolExecutor
 import os
 import torch
 import numpy as np
+from copy import deepcopy
 
 from .utils import to_cuda
 
@@ -55,9 +56,6 @@ def check_hypothesis(eq):
 
     return eq
 
-def test_fn():
-    print("shiit")
-
 class Evaluator(object):
 
     ENV = None
@@ -72,7 +70,7 @@ class Evaluator(object):
         self.env = trainer.env
         Evaluator.ENV = trainer.env
 
-    def run_all_evals(self):
+    def run_all_evals(self, data_types):
         """
         Run all evaluations.
 
@@ -86,13 +84,17 @@ class Evaluator(object):
             return scores
 
         with torch.no_grad():
-            for data_type in ["valid"]:
+            for data_type in data_types:
                 for task in params.tasks:
                     if params.beam_eval:
                         self.enc_dec_step_beam(data_type, task, scores)
                     else:
                         self.enc_dec_step(data_type, task, scores)
         return scores
+
+    def set_env_copies(self, data_types):
+        for data_type in data_types:
+            setattr(self, "{}_env".format(data_type), deepcopy(self.env))
 
     def enc_dec_step(self, data_type, task, scores):
         """
@@ -229,14 +231,15 @@ class Evaluator(object):
                     f"({100. * n_valid[i].item() / max(n_total[i].item(), 1)}%)"
                 )
 
-    def enc_dec_step_beam(self, data_type, task, scores, size=None):
+
+    def enc_dec_step_beam(self, data_type, task, scores):
         """
         Encoding / decoding step with beam generation and SymPy check.
         """
 
         n_infos_prior = 50
         params = self.params
-        env = self.env
+
         max_beam_length = self.params.max_output_len
         encoder = (
             self.modules["encoder"].module
@@ -284,15 +287,16 @@ class Evaluator(object):
                 f_export.flush()
 
         # iterator
+        env = getattr(self, "{}_env".format(data_type))
         iterator = env.create_test_iterator(
-            data_type,
-            task,
-            data_path=self.trainer.data_path,
-            batch_size=params.batch_size_eval,
-            params=params,
-            size=params.eval_size,
-            input_length_modulo=params.eval_input_length_modulo
-        )
+                data_type,
+                task,
+                data_path=self.trainer.data_path,
+                batch_size=params.batch_size_eval,
+                params=params,
+                size=params.eval_size,
+                input_length_modulo=params.eval_input_length_modulo
+            )
         eval_size = len(iterator.dataset)
 
         # stats
@@ -305,7 +309,7 @@ class Evaluator(object):
         n_valid_per_n_predictions= torch.zeros(params.n_predictions,dtype=torch.long)
         n_total=0
         
-        for (x1, len1), (x2, len2), infos in iterator:
+        for (x1, len1), (x2, len2), _ , infos in iterator:
             if n_valid_per_info is None:
                 info_types=list(infos.keys()) 
                 first_key=info_types[0]
