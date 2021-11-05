@@ -81,7 +81,7 @@ def get_parser():
 
     # training parameters
     
-    parser.add_argument("--curriculum_n_ops", type=bool, default=False,
+    parser.add_argument("--curriculum_n_ops", type=bool, default=True,
                     help="Whether we use a curriculum strategy for the number of ops during training")
     parser.add_argument("--env_base_seed", type=int, default=-1,
                         help="Base seed for environments (-1 to use timestamp seed)")
@@ -93,7 +93,7 @@ def get_parser():
                         help="Optimizer (SGD / RMSprop / Adam, etc.)")
     parser.add_argument("--clip_grad_norm", type=float, default=5,
                         help="Clip gradients norm (0 to disable)")
-    parser.add_argument("--epoch_size", type=int, default=1000000,
+    parser.add_argument("--epoch_size", type=int, default=300000,
                         help="Epoch size / evaluation frequency")
     parser.add_argument("--max_epoch", type=int, default=100000,
                         help="Number of epochs")
@@ -256,10 +256,9 @@ def main(params):
             assert accuracy_values.shape[0] == params.max_ops, "Not all ops where found in the evaluation dataset"
             probabilities = 1.-accuracy_values
             probabilities /= probabilities.sum()
-            probabilities = (1. - params.minimum_op_probability) * probabilities + params.minimum_op_probability
+            probabilities = (1. - params.min_op_prob) * probabilities + params.min_op_prob
             trainer.set_new_train_iterator_params({"nb_ops_prob": probabilities})
     
-
         # end of epoch
         trainer.save_best_model(scores)
         trainer.save_periodic()

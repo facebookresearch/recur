@@ -308,9 +308,9 @@ class RecurrenceEnvironment(object):
                             help="Maximal integer in symbolic expressions")
         parser.add_argument("--max_degree", type=int, default=6,
                             help="Number of elements in the sequence the next term depends on")
-        parser.add_argument("--max_ops", type=int, default=6,
+        parser.add_argument("--max_ops", type=int, default=10,
                             help="Number of unary or binary operators")
-        parser.add_argument("--minimum_op_probability", type=int, default=0.05,
+        parser.add_argument("--min_op_prob", type=int, default=0.02,
                             help="Minimum probability of generating an example with given n_op, for our curriculum strategy")
         parser.add_argument("--max_len", type=int, default=30,
                             help="Max number of terms in the series")

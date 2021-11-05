@@ -21,7 +21,7 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "very_final"
+FOLDER_NAME = "final"
 
 def parse_args():
     classification_parser = classification.get_parser()
@@ -116,10 +116,10 @@ def main():
         args.job_dir = shared_folder / name
         Path(args.job_dir).mkdir(exist_ok=True)
 
-        for f in os.listdir():
-            if f.endswith('.py'):
-                shutil.copy2(f, args.job_dir)
-        dir_util.copy_tree('src', os.path.join(args.job_dir,'src'))
+        #for f in os.listdir():
+        #    if f.endswith('.py'):
+        #        shutil.copy2(f, args.job_dir)
+        #dir_util.copy_tree('src', os.path.join(args.job_dir,'src'))
         os.chdir(args.job_dir)
 
         args.exp_id = args.job_dir.name

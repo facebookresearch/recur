@@ -175,7 +175,7 @@ class Trainer(object):
                 for task in params.tasks
             }
 
-    def set_new_train_iterator_params(self, **args):
+    def set_new_train_iterator_params(self, args={}):
         params=self.params 
         if params.env_base_seed < 0:
                 params.env_base_seed = np.random.randint(1_000_000_000)
