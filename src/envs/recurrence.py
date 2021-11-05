@@ -114,7 +114,7 @@ class RecurrenceEnvironment(object):
         else:
             return m.infix()
 
-    def gen_expr(self, train, input_length_modulo=-1,nb_ops=None):
+    def gen_expr(self, train, input_length_modulo=-1, nb_ops=None):
         length=self.params.max_len if input_length_modulo!=-1 and not train else None
         tree, series, predictions= self.generator.generate(rng=self.rng, 
                                                            nb_ops=nb_ops,
@@ -310,7 +310,7 @@ class RecurrenceEnvironment(object):
                             help="Number of elements in the sequence the next term depends on")
         parser.add_argument("--max_ops", type=int, default=10,
                             help="Number of unary or binary operators")
-        parser.add_argument("--min_op_prob", type=int, default=0.02,
+        parser.add_argument("--min_op_prob", type=float, default=0.02,
                             help="Minimum probability of generating an example with given n_op, for our curriculum strategy")
         parser.add_argument("--max_len", type=int, default=30,
                             help="Max number of terms in the series")
@@ -334,7 +334,7 @@ class RecurrenceEnvironment(object):
 
 
 class EnvDataset(Dataset):
-    def __init__(self, env, task, train, params, path, size=None, type=None,input_length_modulo=-1,nb_ops_prob=None):
+    def __init__(self, env, task, train, params, path, size=None, type=None,input_length_modulo=-1, **args):
         super(EnvDataset).__init__()
         self.env = env
         self.train = train
@@ -346,7 +346,10 @@ class EnvDataset(Dataset):
         self.count = 0
         self.type = type
         self.input_length_modulo=input_length_modulo
-        self.nb_ops_prob = nb_ops_prob
+        if "nb_ops_prob" in args:
+            self.nb_ops_prob = args["nb_ops_prob"]
+        else:
+            self.nb_ops_prob = None
         assert task in RecurrenceEnvironment.TRAINING_TASKS
         assert size is None or not self.train
         assert not params.batch_load or params.reload_size > 0

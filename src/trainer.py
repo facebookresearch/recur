@@ -183,6 +183,7 @@ class Trainer(object):
             task: iter(self.env.create_train_iterator(task, self.data_path, params, **args))
             for task in params.tasks
         }
+        print("Succesfully replaced training iterator with following args:{}".format(args))
         return
 
     def set_parameters(self):

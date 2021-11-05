@@ -235,8 +235,10 @@ class RandomRecurrence(Generator):
         else:
             self.max_number = params.max_number
             self.operators = copy.deepcopy(operators_int)
-            if params.operators_to_remove != "":
-                for operator in self.params.operators_to_remove.split(","):
+            
+        if params.operators_to_remove != "":
+            for operator in self.params.operators_to_remove.split(","):
+                if operator in self.operators:
                     del self.operators[operator]
 
         self.unaries = [o for o in self.operators.keys() if self.operators[o] == 1]
@@ -367,16 +369,23 @@ class RandomRecurrence(Generator):
             length = rng.randint(3*deg, self.max_len+1)
     
         trees = []
-    
+        
         if nb_ops is None:
             nb_ops_probas=np.ones((self.dimension,self.max_ops))/self.max_ops
-        elif type(nb_ops)==int:
-            nb_ops_probas=np.zeros((self.dimension,self.max_ops))
-            nb_ops_probas[:,nb_ops-1]=1.0
+            nb_ops=[rng.choice(a=[i+1 for i in range(self.max_ops)], p=nb_ops_probas[dim]) for dim in range(self.dimension)]
+        elif isinstance(nb_ops,int):
+            nb_ops=[nb_ops for dim in range(self.dimension)]
         else:
             nb_ops_probas=nb_ops
-        nb_ops=[rng.choice(a=[i+1 for i in range(self.max_ops)], p=nb_ops_probas[dim]) for dim in range(self.dimension)]
-
+            _nb_ops=[]
+            for dim in range(self.dimension):
+                eps = rng.rand()
+                if eps< self.params.min_op_prob:
+                    n = rng.choice(a=[i+1 for i in range(self.max_ops)])
+                else:
+                    n = rng.choice(a=[i+1 for i in range(self.max_ops)],p=nb_ops_probas)
+                _nb_ops.append(n)
+            nb_ops=_nb_ops
         for i in range(self.dimension):
             trees.append(self.generate_tree(rng, nb_ops[i],deg))
         tree = NodeList(trees)

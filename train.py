@@ -250,15 +250,14 @@ def main(params):
             logger.info("__log__:%s" % json.dumps(scores))
             
         if params.curriculum_n_ops:
-            accuracy_per_n_ops = {measure.split("_")[-1]: acc for measure, acc in scores.items() if "n_ops" in measure}
+            accuracy_per_n_ops = {measure.split("_")[-1]: acc for measure, acc in scores.items() if "n_ops" in measure and "valid1" in measure}
             accuracy_per_n_ops = {int(key):accuracy_per_n_ops[key] for key in sorted(accuracy_per_n_ops.keys())}
             accuracy_values = np.array(list(accuracy_per_n_ops.values()))
             assert accuracy_values.shape[0] == params.max_ops, "Not all ops where found in the evaluation dataset"
             probabilities = 1.-accuracy_values
             probabilities /= probabilities.sum()
-            probabilities = (1. - params.min_op_prob) * probabilities + params.min_op_prob
             trainer.set_new_train_iterator_params({"nb_ops_prob": probabilities})
-    
+            
         # end of epoch
         trainer.save_best_model(scores)
         trainer.save_periodic()
