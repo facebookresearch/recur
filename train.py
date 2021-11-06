@@ -207,21 +207,23 @@ def main(params):
     trainer = Trainer(modules, env, params)
     evaluator = Evaluator(trainer)
 
-    # evaluation
-    if params.eval_only:
-        scores = evaluator.run_all_evals()
-        for k, v in scores.items():
-            logger.info("%s -> %.6f" % (k, v))
-        logger.info("__log__:%s" % json.dumps(scores))
-        exit()
 
     # training
     if params.reload_data!="":
         data_types = ["valid{}".format(i) for i in range(1,len(trainer.data_path["recurrence"]))]
     else:
         data_types = ["valid1"]
-
     evaluator.set_env_copies(data_types)
+
+    # evaluation
+    if params.eval_only:
+        scores = evaluator.run_all_evals(data_types)
+        for k, v in scores.items():
+            logger.info("%s -> %.6f" % (k, v))
+        logger.info("__log__:%s" % json.dumps(scores))
+        exit()
+
+
     scores = evaluator.run_all_evals(data_types)
     if params.is_master:
         logger.info("__log__:%s" % json.dumps(scores))

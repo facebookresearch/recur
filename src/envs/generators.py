@@ -365,9 +365,6 @@ class RandomRecurrence(Generator):
 
         """prediction_points is a boolean which indicates whether we compute prediction points. By default we do not to save time. """
         if deg is None:    deg    = rng.randint(1, self.max_degree + 1)
-        if length is None: 
-            length = rng.randint(3*deg, self.max_len+1)
-    
         trees = []
         
         if nb_ops is None:
@@ -423,6 +420,8 @@ class RandomRecurrence(Generator):
             series.extend(next_values)
 
         assert len(series)==max_recurrence_degree*self.dimension, "Problem with initial conditions"
+        if length is None: 
+            length = rng.randint(max_recurrence_degree, self.max_len+1)
 
         sum_length = length
         if prediction_points:
@@ -454,7 +453,7 @@ class RandomRecurrence(Generator):
             series_input = series
             series_to_predict = None
         
-        return tree, series_input, series_to_predict
+        return tree, series_input, series_to_predict, length
 
     def evaluate(self, src, tgt, hyp, n_predictions=3):
         src_hyp = copy.deepcopy(src)

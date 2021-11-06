@@ -116,10 +116,11 @@ class RecurrenceEnvironment(object):
 
     def gen_expr(self, train, input_length_modulo=-1, nb_ops=None):
         length=self.params.max_len if input_length_modulo!=-1 and not train else None
-        tree, series, predictions= self.generator.generate(rng=self.rng, 
+        tree, series, predictions, max_len = self.generator.generate(rng=self.rng, 
                                                            nb_ops=nb_ops,
                                                            prediction_points=self.params.output_numeric,
                                                            length=length)
+        
         if tree is None:
             return None, None, None, None
         
@@ -186,7 +187,8 @@ class RecurrenceEnvironment(object):
                 _y = self.output_encoder.encode(tree)
             x.append(_x)
             y.append(_y)
-            info["n_input_points"].append(self.params.max_len-idx)
+
+            info["n_input_points"].append(max_len-idx)
             info["n_ops"].append(n_ops)
             info["n_recurrence_degree"].append(n_recurrence_degree)
 
