@@ -78,7 +78,7 @@ class RecurrenceEnvironment(object):
         self.pad_index = params.pad_index = self.output_word2id["PAD"]
 
         logger.info(f"vocabulary: {len(self.input_word2id)} input words, {len(self.output_word2id)} output_words")
-        logger.info(f"output words: {self.output_word2id.keys()}")
+        # logger.info(f"output words: {self.output_word2id.keys()}")
         
     def batch_sequences(self, sequences):
         """
@@ -114,7 +114,8 @@ class RecurrenceEnvironment(object):
         else:
             return m.infix()
 
-    def gen_expr(self, train, input_length_modulo=-1, nb_ops=None):
+    def gen_expr(self, train, input_length_modulo=-1, nb_ops=None,):
+        
         length=self.params.max_len if input_length_modulo!=-1 and not train else None
         tree, series, predictions, max_len = self.generator.generate(rng=self.rng, 
                                                            nb_ops=nb_ops,
@@ -312,7 +313,7 @@ class RecurrenceEnvironment(object):
                             help="Number of elements in the sequence the next term depends on")
         parser.add_argument("--max_ops", type=int, default=10,
                             help="Number of unary or binary operators")
-        parser.add_argument("--min_op_prob", type=float, default=0.02,
+        parser.add_argument("--min_op_prob", type=float, default=0.01,
                             help="Minimum probability of generating an example with given n_op, for our curriculum strategy")
         parser.add_argument("--max_len", type=int, default=30,
                             help="Max number of terms in the series")

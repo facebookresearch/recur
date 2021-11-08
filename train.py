@@ -30,7 +30,7 @@ def get_parser():
     Generate a parameters parser.
     """
     # parse parameters
-    parser = argparse.ArgumentParser(description="Language transfer", add_help=False)
+    parser = argparse.ArgumentParser(description="Recurrence prediction", add_help=False)
 
     # main parameters
     parser.add_argument("--dump_path", type=str, default="",
@@ -89,7 +89,7 @@ def get_parser():
                         help="Number of sentences per batch")
     parser.add_argument("--batch_size_eval", type=int, default=None,
                         help="Number of sentences per batch during evaluation (if None, set to 1.5*batch_size)")
-    parser.add_argument("--optimizer", type=str, default="adam_inverse_sqrt,lr=0.001",
+    parser.add_argument("--optimizer", type=str, default="adam_inverse_sqrt,lr=0.0002,warmup_updates=10000",
                         help="Optimizer (SGD / RMSprop / Adam, etc.)")
     parser.add_argument("--clip_grad_norm", type=float, default=5,
                         help="Clip gradients norm (0 to disable)")
@@ -252,11 +252,11 @@ def main(params):
             logger.info("__log__:%s" % json.dumps(scores))
             
         if params.curriculum_n_ops:
-            accuracy_per_n_ops = {measure.split("_")[-1]: acc for measure, acc in scores.items() if "n_ops" in measure and "valid1" in measure}
-            accuracy_per_n_ops = {int(key):accuracy_per_n_ops[key] for key in sorted(accuracy_per_n_ops.keys())}
+            accuracy_per_n_ops = {int(measure.split("_")[-1]): acc for measure, acc in scores.items() if "n_ops" in measure and "valid1" in measure}
+            accuracy_per_n_ops = {key//params.dimension : accuracy_per_n_ops[key] for key in sorted(accuracy_per_n_ops.keys())[::params.dimension]}
             accuracy_values = np.array(list(accuracy_per_n_ops.values()))
             assert accuracy_values.shape[0] == params.max_ops, "Not all ops where found in the evaluation dataset"
-            probabilities = 1.-accuracy_values
+            probabilities = 1.-accuracy_values/100
             probabilities /= probabilities.sum()
             trainer.set_new_train_iterator_params({"nb_ops_prob": probabilities})
             

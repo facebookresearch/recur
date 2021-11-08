@@ -366,7 +366,6 @@ class RandomRecurrence(Generator):
         """prediction_points is a boolean which indicates whether we compute prediction points. By default we do not to save time. """
         if deg is None:    deg    = rng.randint(1, self.max_degree + 1)
         trees = []
-        
         if nb_ops is None:
             nb_ops_probas=np.ones((self.dimension,self.max_ops))/self.max_ops
             nb_ops=[rng.choice(a=[i+1 for i in range(self.max_ops)], p=nb_ops_probas[dim]) for dim in range(self.dimension)]
@@ -380,9 +379,10 @@ class RandomRecurrence(Generator):
                 if eps< self.params.min_op_prob:
                     n = rng.choice(a=[i+1 for i in range(self.max_ops)])
                 else:
-                    n = rng.choice(a=[i+1 for i in range(self.max_ops)],p=nb_ops_probas)
+                    n = rng.choice(a=[i+1 for i in range(self.max_ops)], p=nb_ops_probas)
                 _nb_ops.append(n)
             nb_ops=_nb_ops
+            
         for i in range(self.dimension):
             trees.append(self.generate_tree(rng, nb_ops[i],deg))
         tree = NodeList(trees)

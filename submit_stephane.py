@@ -21,7 +21,7 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "very_last"
+FOLDER_NAME = "curriculum"
 
 def parse_args():
     classification_parser = classification.get_parser()
@@ -89,11 +89,9 @@ def main():
     grid = {
         "real_series": [True, False],
         "output_numeric": [True, False],
-        "dimension": [1,2,3],
-        "prob_rand": [0.05, 0.0],
-        "curriculum_n_ops": [True, False],
-        "batch_size": [64],
-        "optimizer":["adam_inverse_sqrt,lr=0.0002,warmup_updates=10000"],
+        "dimension": [2,3],
+        # "prob_rand": [0.05, 0.0],
+        "curriculum_n_ops": [True,],
     }
 
     def dict_product(d):
@@ -104,14 +102,13 @@ def main():
     for params in dict_product(grid):
 
         args.master_port = np.random.randint(10001, 20000)
-        args.batch_size = 128
+        args.batch_size = 64
         args.n_enc_layers = 8
         args.n_dec_layers = 8
         args.enc_emb_dim = 512
         args.dec_emb_dim = 512
         args.use_volta32 = True
         args.max_token_len=200
-        # args.optimizer = 'adam_inverse_sqrt,lr={}'.format(params['lr'])
         
         name = '_'.join(['{}_{}'.format(k,v) for k,v in params.items()])
         args.job_dir = shared_folder / name

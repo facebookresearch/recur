@@ -137,7 +137,7 @@ class Trainer(object):
 
         # reload exported data
         if params.reload_data != "":
-            print(params.reload_data)
+            logger.info(params.reload_data)
             #assert params.num_workers in [0, 1] ##TODO: why have that?
             assert params.export_data is False
             s = [x.split(",") for x in params.reload_data.split(";") if len(x) > 0]
@@ -153,7 +153,7 @@ class Trainer(object):
                 for task, train_path, valid_path, test_paths in s
             }
            
-            print(self.data_path)
+            logger.info(self.data_path)
 
 
             
@@ -178,12 +178,12 @@ class Trainer(object):
     def set_new_train_iterator_params(self, args={}):
         params=self.params 
         if params.env_base_seed < 0:
-                params.env_base_seed = np.random.randint(1_000_000_000)
+            params.env_base_seed = np.random.randint(1_000_000_000)
         self.dataloader = {
             task: iter(self.env.create_train_iterator(task, self.data_path, params, **args))
             for task in params.tasks
         }
-        print("Succesfully replaced training iterator with following args:{}".format(args))
+        logger.info("Succesfully replaced training iterator with following args:{}".format(args))
         return
 
     def set_parameters(self):

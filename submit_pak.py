@@ -41,7 +41,7 @@ def parse_args():
 def get_shared_folder() -> Path:
     user = os.getenv("USER")
     if Path("/checkpoint/").is_dir():
-        p = Path(f"/checkpoint/{user}/recur")
+        p = Path(f"/checkpoint/pakamienny/recur")
         # p = p / str(int(time.time()))
         p = p / FOLDER_NAME
         p.mkdir(exist_ok=True)
