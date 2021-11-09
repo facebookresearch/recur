@@ -44,13 +44,12 @@ def check_hypothesis(eq):
     src = [env.input_id2word[wid] for wid in eq["src"]]
     tgt = [env.output_id2word[wid] for wid in eq["tgt"]]
     hyp = [env.output_id2word[wid] for wid in eq["hyp"]]
-
     # update hypothesis
     eq["src"] = env.input_to_infix(src)
     eq["tgt"] = tgt
     eq["hyp"] = hyp
-    
-    error = env.check_prediction(src, tgt, hyp, n)
+    tree = eq["tree"]
+    error = env.check_prediction(src, tgt, hyp, tree, n)
     eq["error"] = error
 
     return eq
@@ -315,13 +314,12 @@ class Evaluator(object):
         n_valid_per_n_predictions= torch.zeros(params.n_predictions,dtype=torch.long)
         n_total=0
         
-        for (x1, len1), (x2, len2), _ , infos in iterator:
+        for (x1, len1), (x2, len2), trees , infos in iterator:
             if n_valid_per_info is None:
                 info_types=list(infos.keys()) 
                 first_key=info_types[0]
                 n_valid_per_info={info_type: torch.zeros(n_infos_prior, dtype=torch.long) for info_type in info_types}
                 n_total_per_info={info_type: torch.zeros(n_infos_prior, dtype=torch.long) for info_type in info_types}
-
 
             # target words to predict
             alen = torch.arange(len2.max(), dtype=torch.long, device=len2.device)
@@ -421,6 +419,7 @@ class Evaluator(object):
                             "tgt": x2[1 : len2[i] - 1, i].tolist(),
                             "hyp": hyp[1:].tolist(),
                             "task": task,
+                            "tree": trees[i]
                         }
                     )
 

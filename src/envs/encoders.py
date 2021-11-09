@@ -136,19 +136,32 @@ class Equation(Encoder):
     def __init__(self, params):
         super().__init__(params)
         self.params = params
-        #self.int_encoder = IntegerSeries(params)
+        if params.extra_unary_operators!="":
+            self.extra_unary_operators=self.params.extra_unary_operators.split(",")
+        else:
+            self.extra_unary_operators=[]
+        if params.extra_binary_operators!="":
+            self.extra_binary_operators=self.params.extra_binary_operators.split(",")
+        else:
+            self.extra_binary_operators=[]
+
 
     def encode(self, tree):
-        pref = tree.prefix().split(',')
         res = []
-        for p in pref:
-            res.append(p)
+        for elem in tree.prefix().split(','):
+            try:
+                if isinstance(eval(elem), float):
+                    res.append("OOD_constant")
+            except:
+                res.append(elem)
         return res
-    
+
     def _decode(self, lst):
         if len(lst)==0:
             return None, 0
         elif lst[0]=='SPECIAL':
+            return None, 0
+        elif "OOD" in lst[0]:
             return None, 0
         elif lst[0] in all_operators.keys():
             res = Node(lst[0], self.params)

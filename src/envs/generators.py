@@ -26,28 +26,6 @@ operators_real = {
     'arccos' :1,
     'tan'    :1,
     'arctan' :1,
-    'r1': 1,
-    'r2': 1,
-    'r3': 1,
-    'r4': 1,
-    'r5': 1,
-    'r6': 1,
-    'r7': 1,
-    'r8': 1,
-    'r9': 1,
-    'r10': 1,
-    'r11': 1,
-    'r12': 1,
-    'r13': 1,
-    'r14': 1,
-    'r15': 1,
-
-#    'sinh'   :1,
-#    'arcsinh':1,
-#    'cosh'   :1,
-#    'arccosh':1,
-#    'tanh'   :1,
-#    'arctanh':1,
 }
 
 operators_int = {
@@ -60,21 +38,6 @@ operators_int = {
     'sqr': 1,
     'step': 1,
     'sign': 1,
-    'i1': 1,
-    'i2': 1,
-    'i3': 1,
-    'i4': 1,
-    'i5': 1,
-    'i6': 1,
-    'i7': 1,
-    'i8': 1,
-    'i9': 1,
-    'i10': 1,
-    'i11': 1,
-    'i12': 1,
-    'i13': 1,
-    'i14': 1,
-    'i15': 1,
 }
 
 math_constants = ['e','pi','euler_gamma']
@@ -147,8 +110,9 @@ class Node():
             elif str(self.value) in math_constants:
                 return getattr(np, str(self.value))
             else:
-                return int(self.value)
-        
+                return self.value
+               
+    
         if self.value == 'add':
             return self.children[0].val(series) + self.children[1].val(series)
         if self.value == 'sub':
@@ -181,6 +145,10 @@ class Node():
         if self.value == "step":
             x = self.children[0].val(series)
             return x if x>0 else 0
+        if self.value == "hello":
+            return 1. if self.params.real_series else 1
+        if self.value == "hello2":
+            return -1. if self.params.real_series else -1
         else:
             return getattr(np,self.value)(self.children[0].val(series))
         
@@ -260,7 +228,7 @@ class RandomRecurrence(Generator):
         self.min_len = params.max_len
         self.init_scale = params.init_scale
         self.dimension = params.dimension
-        
+
         if params.real_series:
             self.max_number = 10**(params.max_exponent+params.float_precision)
             self.operators = copy.deepcopy(operators_real)
@@ -276,21 +244,35 @@ class RandomRecurrence(Generator):
             self.required_operators=self.params.required_operators.split(",")
         else:
             self.required_operators=[]
-        self.unaries = [o for o in self.operators.keys() if np.abs(self.operators[o]) == 1]
-        self.unaries_probabilities=np.array([1.0 if self.operators[o]>0 else 0.0 for o in self.unaries])
+        
+        if params.extra_unary_operators!="":
+            self.extra_unary_operators=self.params.extra_unary_operators.split(",")
+        else:
+            self.extra_unary_operators=[]
+        
+        if params.extra_binary_operators!="":
+            self.extra_binary_operators=self.params.extra_binary_operators.split(",")
+        else:
+            self.extra_binary_operators=[]
+
+        self.unaries = [o for o in self.operators.keys() if np.abs(self.operators[o]) == 1] + self.extra_unary_operators
+        self.unaries_probabilities=np.array([1.0 if o in self.extra_unary_operators or self.operators[o]>0 else 0.0 for o in self.unaries])
         self.unaries_probabilities/=self.unaries_probabilities.sum()
-        self.binaries = [o for o in self.operators.keys() if np.abs(self.operators[o]) == 2]
-        self.binaries_probabilities=np.array([1.0 if self.operators[o]>0 else 0.0 for o in self.binaries])
+        self.binaries = [o for o in self.operators.keys() if np.abs(self.operators[o]) == 2] + self.extra_binary_operators
+        self.binaries_probabilities=np.array([1.0 if o in self.extra_binary_operators or self.operators[o]>0 else 0.0 for o in self.binaries])
         self.binaries_probabilities/=self.binaries_probabilities.sum()
 
         self.unary = len(self.unaries) > 0
         self.distrib = self.generate_dist(2 * self.max_ops)
 
         self.constants = [str(i) for i in range(-self.max_int,self.max_int+1) if i!=0]
+    
         if params.real_series:
             self.constants += math_constants
         self.symbols = list(self.operators) + [f'x_{i}_{j}' for i in range(self.dimension) for j in range(self.max_degree+1)] + self.constants + ['n', '|']
         self.symbols += ['rand']
+        self.extra_constants = self.params.extra_constants.split(",")
+        self.float_constants = self.params.float_constants
 
     def generate_dist(self, max_ops):
         """
@@ -321,7 +303,11 @@ class RandomRecurrence(Generator):
         else:
             draw = rng.rand()
             if draw < self.prob_const:
-	            return rng.choice(self.constants)
+                if  self.float_constants is not None:
+                    return rng.uniform(low=-self.float_constants, high=self.float_constants)
+                else:
+	                return rng.choice(self.constants + self.extra_constants)
+                
             elif draw > self.prob_const and draw < self.prob_const + self.prob_n:
                 return 'n'
             else:
@@ -331,7 +317,6 @@ class RandomRecurrence(Generator):
         if arity==1:
             ops=self.unaries
             probas=self.unaries_probabilities
-
         else:
             ops=self.binaries
             probas=self.binaries_probabilities
@@ -458,7 +443,6 @@ class RandomRecurrence(Generator):
             try:
                 next_values_array = np.array(next_values, dtype=np.float)
             except:
-                print(tree, next_values)
                 return None, None, None
             
             if np.any(np.isnan(next_values_array)): 
@@ -486,7 +470,6 @@ class RandomRecurrence(Generator):
             try:
                 vals_array = np.array(vals, dtype=np.float)
             except:
-                print(tree, vals)
                 return None, None, None, None
             if np.any(np.isnan(vals_array)): 
                 return None, None, None, None

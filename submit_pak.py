@@ -110,8 +110,6 @@ def main():
         args.dec_emb_dim = 512
         args.use_volta32 = True
         args.max_token_len=200
-        args.operators_to_remove=",".join(["r{}".format(i) for i in range(1,16)]+["o{}".format(i) for i in range(1,16)])
-        # args.optimizer = 'adam_inverse_sqrt,lr={}'.format(params['lr'])
         
         name = '_'.join(['{}_{}'.format(k,v) for k,v in params.items()])
         args.job_dir = shared_folder / name

@@ -25,7 +25,7 @@ from torch.utils.data import DataLoader
 import collections
 from ..utils import bool_flag
 
-SPECIAL_WORDS = ["EOS", "PAD", "(", ")", "SPECIAL"]
+SPECIAL_WORDS = ["EOS", "PAD", "(", ")", "SPECIAL", "OOD_unary_op", "OOD_binary_op", "OOD_constant"]
 logger = getLogger()
 
 
@@ -66,9 +66,19 @@ class RecurrenceEnvironment(object):
         # number of words / indices
         self.input_id2word = {i: s for i, s in enumerate(self.input_words)}
         self.output_id2word = {i: s for i, s in enumerate(self.output_words)}
-       
         self.input_word2id = {s: i for i, s in self.input_id2word.items()}
         self.output_word2id = {s: i for i, s in self.output_id2word.items()}
+
+        for ood_unary_op in self.generator.extra_unary_operators:
+            self.output_word2id[ood_unary_op]=self.output_word2id["OOD_unary_op"]
+        for ood_binary_op in self.generator.extra_binary_operators:
+            self.output_word2id[ood_binary_op]=self.output_word2id["OOD_binary_op"]
+        for c in self.generator.extra_constants:
+            self.output_word2id[c]=self.output_word2id["OOD_constant"]
+        
+        if self.params.float_constants:
+            assert self.params.real_series, "Constants cannot be float when we consider integer series"
+
         assert len(self.input_words) == len(set(self.input_words))
         assert len(self.output_words) == len(set(self.output_words))
         self.n_words = params.n_words = len(self.output_words)
@@ -203,15 +213,15 @@ class RecurrenceEnvironment(object):
     def decode_class(self, nb_ops):
         return nb_ops
 
-    def check_prediction(self, src, tgt, hyp, n_predictions=5):
+    def check_prediction(self, src, tgt, hyp, tree, n_predictions=5):
         src = self.input_encoder.decode(src)
         eq_hyp = self.output_encoder.decode(hyp)
-        eq_tgt = self.output_encoder.decode(tgt)
-
         if self.params.output_numeric:
+            eq_tgt = self.output_encoder.decode(tgt)
             if eq_hyp is None or np.nan in eq_hyp or len(eq_tgt)!=len(eq_hyp):
                 return [-1 for _ in range(n_predictions)]
         else:
+            eq_tgt = tree
             if eq_hyp is None:
                 return [-1 for _ in range(n_predictions)]
         if self.params.output_numeric:
@@ -294,10 +304,22 @@ class RecurrenceEnvironment(object):
         # encoding
         parser.add_argument("--real_series", type=bool_flag, default=False,
                             help="Whether to use real series rather than integer series")
+
+
         parser.add_argument("--operators_to_remove", type=str, default="",
                             help="Which operator to remove")
         parser.add_argument("--required_operators", type=str, default="",
-                            help="Which operator to remove")             
+                            help="Which operator to remove")    
+        parser.add_argument("--extra_unary_operators", type=str, default="",
+                            help="Extra unary operator to add to data generation")    
+        parser.add_argument("--extra_binary_operators", type=str, default="",
+                            help="Extra binary operator to add to data generation")    
+        parser.add_argument("--float_constants", type=float, default=None,
+                            help="Use float constants instead of ints") 
+        parser.add_argument("--extra_constants", type=str, default="",
+                            help="Additional int constants floats instead of ints") 
+
+
         parser.add_argument("--dimension", type=int, default=1,
                             help="Number of variables")
         parser.add_argument("--float_precision", type=int, default=3,
