@@ -21,7 +21,7 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "final"
+FOLDER_NAME = "pierre"
 
 def parse_args():
     classification_parser = classification.get_parser()

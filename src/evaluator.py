@@ -330,9 +330,8 @@ class Evaluator(object):
             assert len(y) == (len2 - 1).sum().item()
 
             # cuda
-            x1_, len1_, x2, len2, y = to_cuda(x1, len1, x2, len2, y) if not params.cpu else x1, len1, x2, len2, y
-            
-            bs = len(len1)
+            x1_, len1_, x2, len2, y = to_cuda(x1, len1, x2, len2, y)
+            bs=len1_.shape[0]
             n_total+=bs
 
             valid_additional_per_minibatch = torch.zeros(1+len(env.additional_tolerance), bs, dtype=int)

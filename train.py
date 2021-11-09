@@ -164,7 +164,7 @@ def get_parser():
                         help="Export evaluation details")
     parser.add_argument("--eval_verbose_print", type=bool_flag, default=False,
                         help="Print evaluation details")
-    parser.add_argument("--eval_input_length_modulo", type=bool_flag, default=-1,
+    parser.add_argument("--eval_input_length_modulo", type=int, default=-1,
                         help="Compute accuracy for all input lengths modulo X. -1 is equivalent to no ablation")
 
     # debug
@@ -247,23 +247,24 @@ def main(params):
         logger.info("============ End of epoch %i ============" % trainer.epoch)
 
         # evaluate perplexity
-        scores = evaluator.run_all_evals(data_types)
-        if params.is_master:
-            logger.info("__log__:%s" % json.dumps(scores))
-            
-        if params.curriculum_n_ops:
-            ##TODO: deal with multidim case
-            neg_accuracy_per_n_ops = {int(measure.split("_")[-1]): 1.-acc/100. for measure, acc in scores.items() if "n_ops" in measure and "valid1" in measure}
-            min_neg_accuracy_per_n_ops = min(neg_accuracy_per_n_ops.values())
-            for op in range(1,params.max_ops+1):
-                if op not in neg_accuracy_per_n_ops:
-                    neg_accuracy_per_n_ops[op]=min_neg_accuracy_per_n_ops
-            neg_accuracy_per_n_ops = {key : neg_accuracy_per_n_ops[key] for key in sorted(neg_accuracy_per_n_ops.keys())}
-            probabilities = np.array(list(neg_accuracy_per_n_ops.values()))
-            assert probabilities.shape[0] == params.max_ops
-            probabilities /= probabilities.sum()
-            trainer.set_new_train_iterator_params({"nb_ops_prob": probabilities, "env_info": trainer.epoch})
-            
+        if not params.export_data:
+            scores = evaluator.run_all_evals(data_types)
+            if params.is_master:
+                logger.info("__log__:%s" % json.dumps(scores))
+                
+            if params.curriculum_n_ops:
+                ##TODO: deal with multidim case
+                neg_accuracy_per_n_ops = {int(measure.split("_")[-1]): 1.-acc/100. for measure, acc in scores.items() if "n_ops" in measure and "valid1" in measure}
+                min_neg_accuracy_per_n_ops = min(neg_accuracy_per_n_ops.values())
+                for op in range(1,params.max_ops+1):
+                    if op not in neg_accuracy_per_n_ops:
+                        neg_accuracy_per_n_ops[op]=min_neg_accuracy_per_n_ops
+                neg_accuracy_per_n_ops = {key : neg_accuracy_per_n_ops[key] for key in sorted(neg_accuracy_per_n_ops.keys())}
+                probabilities = np.array(list(neg_accuracy_per_n_ops.values()))
+                assert probabilities.shape[0] == params.max_ops
+                probabilities /= probabilities.sum()
+                trainer.set_new_train_iterator_params({"nb_ops_prob": probabilities, "env_info": trainer.epoch})
+                
         # end of epoch
         trainer.save_best_model(scores)
         trainer.save_periodic()

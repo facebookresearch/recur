@@ -300,7 +300,6 @@ class RecurrenceEnvironment(object):
         
         parser.add_argument("--output_numeric", type=bool_flag, default=True,
                             help="Whether we learn to predict numeric values or a symbolic expression")
-        
         # encoding
         parser.add_argument("--real_series", type=bool_flag, default=False,
                             help="Whether to use real series rather than integer series")
