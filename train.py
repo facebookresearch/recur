@@ -85,6 +85,8 @@ def get_parser():
                     help="Whether we use a curriculum strategy for the number of ops during training")
     parser.add_argument("--env_base_seed", type=int, default=-1,
                         help="Base seed for environments (-1 to use timestamp seed)")
+    parser.add_argument("--test_env_seed", type=int, default=1,
+                        help="Test seed for environments")
     parser.add_argument("--batch_size", type=int, default=256,
                         help="Number of sentences per batch")
     parser.add_argument("--batch_size_eval", type=int, default=None,
@@ -223,7 +225,6 @@ def main(params):
         logger.info("__log__:%s" % json.dumps(scores))
         exit()
 
-
     scores = evaluator.run_all_evals(data_types)
     if params.is_master:
         logger.info("__log__:%s" % json.dumps(scores))
@@ -258,7 +259,7 @@ def main(params):
             assert accuracy_values.shape[0] == params.max_ops, "Not all ops where found in the evaluation dataset"
             probabilities = 1.-accuracy_values/100
             probabilities /= probabilities.sum()
-            trainer.set_new_train_iterator_params({"nb_ops_prob": probabilities})
+            trainer.set_new_train_iterator_params({"nb_ops_prob": probabilities, "env_info": trainer.epoch})
             
         # end of epoch
         trainer.save_best_model(scores)

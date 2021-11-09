@@ -26,6 +26,22 @@ operators_real = {
     'arccos' :1,
     'tan'    :1,
     'arctan' :1,
+    'r1': 1,
+    'r2': 1,
+    'r3': 1,
+    'r4': 1,
+    'r5': 1,
+    'r6': 1,
+    'r7': 1,
+    'r8': 1,
+    'r9': 1,
+    'r10': 1,
+    'r11': 1,
+    'r12': 1,
+    'r13': 1,
+    'r14': 1,
+    'r15': 1,
+
 #    'sinh'   :1,
 #    'arcsinh':1,
 #    'cosh'   :1,
@@ -44,6 +60,21 @@ operators_int = {
     'sqr': 1,
     'step': 1,
     'sign': 1,
+    'i1': 1,
+    'i2': 1,
+    'i3': 1,
+    'i4': 1,
+    'i5': 1,
+    'i6': 1,
+    'i7': 1,
+    'i8': 1,
+    'i9': 1,
+    'i10': 1,
+    'i11': 1,
+    'i12': 1,
+    'i13': 1,
+    'i14': 1,
+    'i15': 1,
 }
 
 math_constants = ['e','pi','euler_gamma']
@@ -241,7 +272,10 @@ class RandomRecurrence(Generator):
             for operator in self.params.operators_to_remove.split(","):
                 if operator in self.operators:
                     self.operators[operator]=-self.operators[operator]
-
+        if params.required_operators != "":
+            self.required_operators=self.params.required_operators.split(",")
+        else:
+            self.required_operators=[]
         self.unaries = [o for o in self.operators.keys() if np.abs(self.operators[o]) == 1]
         self.unaries_probabilities=np.array([1.0 if self.operators[o]>0 else 0.0 for o in self.unaries])
         self.unaries_probabilities/=self.unaries_probabilities.sum()
@@ -395,7 +429,10 @@ class RandomRecurrence(Generator):
         for i in range(self.dimension):
             trees.append(self.generate_tree(rng, nb_ops[i],deg))
         tree = NodeList(trees)
-        
+        for op in self.required_operators:
+            if op not in tree.infix():
+                return None, None, None, None
+
         recurrence_degrees = tree.get_recurrence_degrees()
         min_recurrence_degree, max_recurrence_degree = min(recurrence_degrees), max(recurrence_degrees)
 

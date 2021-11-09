@@ -41,13 +41,11 @@ def check_hypothesis(eq):
     """
     env = Evaluator.ENV
     n = env.params.n_predictions
-
     src = [env.input_id2word[wid] for wid in eq["src"]]
     tgt = [env.output_id2word[wid] for wid in eq["tgt"]]
     hyp = [env.output_id2word[wid] for wid in eq["hyp"]]
 
     # update hypothesis
-
     eq["src"] = env.input_to_infix(src)
     eq["tgt"] = tgt
     eq["hyp"] = hyp
@@ -145,15 +143,13 @@ class Evaluator(object):
             params=params,
             size=params.eval_size,
             input_length_modulo=params.eval_ablation_input_length,
-            args=eval_args
-            
+            args=eval_args        
         )
-        
+    
         eval_size = len(iterator.dataset)
         logger.info('Testing on {} samples'.format(eval_size))
 
         for (x1, len1), (x2, len2), nb_ops in iterator:
-            
             # print status
             # FC : remove lengthy pacifiers
             # if n_total.sum().item() % 500 < params.batch_size_eval:

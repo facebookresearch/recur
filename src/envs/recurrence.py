@@ -296,7 +296,8 @@ class RecurrenceEnvironment(object):
                             help="Whether to use real series rather than integer series")
         parser.add_argument("--operators_to_remove", type=str, default="",
                             help="Which operator to remove")
-                            
+        parser.add_argument("--required_operators", type=str, default="",
+                            help="Which operator to remove")             
         parser.add_argument("--dimension", type=int, default=1,
                             help="Number of variables")
         parser.add_argument("--float_precision", type=int, default=3,
