@@ -226,6 +226,7 @@ class RandomRecurrence(Generator):
         self.max_degree = params.max_degree
         self.max_ops = params.max_ops
         self.max_len = params.max_len
+        self.min_len = params.max_len
         self.init_scale = params.init_scale
         self.dimension = params.dimension
         
@@ -239,10 +240,15 @@ class RandomRecurrence(Generator):
         if params.operators_to_remove != "":
             for operator in self.params.operators_to_remove.split(","):
                 if operator in self.operators:
-                    del self.operators[operator]
+                    self.operators[operator]=-self.operators[operator]
 
-        self.unaries = [o for o in self.operators.keys() if self.operators[o] == 1]
-        self.binaries = [o for o in self.operators.keys() if self.operators[o] == 2]
+        self.unaries = [o for o in self.operators.keys() if np.abs(self.operators[o]) == 1]
+        self.unaries_probabilities=np.array([1.0 if self.operators[o]>0 else 0.0 for o in self.unaries])
+        self.unaries_probabilities/=self.unaries_probabilities.sum()
+        self.binaries = [o for o in self.operators.keys() if np.abs(self.operators[o]) == 2]
+        self.binaries_probabilities=np.array([1.0 if self.operators[o]>0 else 0.0 for o in self.binaries])
+        self.binaries_probabilities/=self.binaries_probabilities.sum()
+
         self.unary = len(self.unaries) > 0
         self.distrib = self.generate_dist(2 * self.max_ops)
 
@@ -289,10 +295,13 @@ class RandomRecurrence(Generator):
 
     def generate_ops(self, rng, arity):
         if arity==1:
-            ops = [unary for unary in self.unaries]
+            ops=self.unaries
+            probas=self.unaries_probabilities
+
         else:
-            ops = [binary for binary in self.binaries]
-        return rng.choice(ops)
+            ops=self.binaries
+            probas=self.binaries_probabilities
+        return rng.choice(ops, p=probas)
 
     def sample_next_pos(self, rng, nb_empty, nb_ops):
         """
@@ -359,9 +368,9 @@ class RandomRecurrence(Generator):
     #            node.children[1].value = self.generate_leaf(degree)
     #    return node
     
-    def generate(self, rng, nb_ops=None, deg=None, length=None, prediction_points=False):
-        rng = rng
-        rng.seed() 
+    def generate(self, rng, nb_ops=None, length=None, prediction_points=False,deg=None):
+        #rng = rng
+        #rng.seed() 
 
         """prediction_points is a boolean which indicates whether we compute prediction points. By default we do not to save time. """
         if deg is None:    deg    = rng.randint(1, self.max_degree + 1)
@@ -421,7 +430,7 @@ class RandomRecurrence(Generator):
 
         assert len(series)==max_recurrence_degree*self.dimension, "Problem with initial conditions"
         if length is None: 
-            length = rng.randint(max_recurrence_degree, self.max_len+1)
+            length = rng.randint(self.min_len, self.max_len+1)
 
         sum_length = length
         if prediction_points:

@@ -180,7 +180,7 @@ class Trainer(object):
         if params.env_base_seed < 0:
             params.env_base_seed = np.random.randint(1_000_000_000)
         self.dataloader = {
-            task: iter(self.env.create_train_iterator(task, self.data_path, params, **args))
+            task: iter(self.env.create_train_iterator(task, self.data_path, params, args))
             for task in params.tasks
         }
         logger.info("Succesfully replaced training iterator with following args:{}".format(args))
@@ -560,7 +560,7 @@ class Trainer(object):
 
         # batch
         #online_data_time = time.time()
-        (x1, len1), (x2, len2), _, _ = self.get_batch(task)
+        (x1, len1), (x2, len2), trees , infos = self.get_batch(task)
         #logger.info("Data batch generation took: {}".format(time.time()-online_data_time))
 
         learning_step_time = time.time()
@@ -574,7 +574,6 @@ class Trainer(object):
 
         # cuda
         x1, len1, x2, len2, y = to_cuda(x1, len1, x2, len2, y)
-
         # forward / loss
         if params.amp == -1 or params.nvidia_apex:
             encoded = encoder("fwd", x=x1, lengths=len1, causal=False)

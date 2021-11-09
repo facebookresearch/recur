@@ -66,8 +66,6 @@ class RecurrenceEnvironment(object):
         # number of words / indices
         self.input_id2word = {i: s for i, s in enumerate(self.input_words)}
         self.output_id2word = {i: s for i, s in enumerate(self.output_words)}
-
-    
        
         self.input_word2id = {s: i for i, s in self.input_id2word.items()}
         self.output_word2id = {s: i for i, s in self.output_id2word.items()}
@@ -99,28 +97,36 @@ class RecurrenceEnvironment(object):
 
         return sent, lengths
 
-    def input_to_infix(self, lst):
+    def input_to_infix(self, lst, str_array=True):
         m = self.input_encoder.decode(lst)
         if m is None:
             return "Invalid"
-        return np.array2string(np.array(m))
+        if str_array:
+            return np.array2string(np.array(m))
+        else:
+            return np.array(m)
 
-    def output_to_infix(self, lst):
+
+    def output_to_infix(self, lst, str_array=True):
         m = self.output_encoder.decode(lst)
         if m is None:
             return "Invalid"
         if self.params.output_numeric:
-            return np.array2string(np.array(m))
+            if str_array:
+                return np.array2string(np.array(m))
+            else:
+                return np.array(m)
         else:
             return m.infix()
 
-    def gen_expr(self, train, input_length_modulo=-1, nb_ops=None,):
+    def gen_expr(self, train, input_length_modulo=-1, nb_ops=None):
         
         length=self.params.max_len if input_length_modulo!=-1 and not train else None
-        tree, series, predictions, max_len = self.generator.generate(rng=self.rng, 
-                                                           nb_ops=nb_ops,
-                                                           prediction_points=self.params.output_numeric,
-                                                           length=length)
+        tree, series, predictions, max_len = self.generator.generate( 
+                                                                    rng=self.rng, 
+                                                                    nb_ops=nb_ops,
+                                                                    prediction_points=self.params.output_numeric,
+                                                                    length=length)
         
         if tree is None:
             return None, None, None, None
@@ -221,7 +227,7 @@ class RecurrenceEnvironment(object):
                 error = self.generator.evaluate(src, eq_tgt, eq_hyp, n_predictions)
         return error
 
-    def create_train_iterator(self, task, data_path, params, **args):
+    def create_train_iterator(self, task, data_path, params, args={}):
         """
         Create a dataset for this environment.
         """
@@ -248,7 +254,7 @@ class RecurrenceEnvironment(object):
         )
 
     def create_test_iterator(
-        self, data_type, task, data_path, batch_size, params, size, input_length_modulo
+        self, data_type, task, data_path, batch_size, params, size, input_length_modulo, **args
     ):
         """
         Create a dataset for this environment.
@@ -267,9 +273,10 @@ class RecurrenceEnvironment(object):
             ),
             size=size,
             type=data_type,
-            input_length_modulo=input_length_modulo
-
+            input_length_modulo=input_length_modulo,
+            **args
         )
+        
         return DataLoader(
             dataset,
             timeout=0,
@@ -317,6 +324,8 @@ class RecurrenceEnvironment(object):
                             help="Minimum probability of generating an example with given n_op, for our curriculum strategy")
         parser.add_argument("--max_len", type=int, default=30,
                             help="Max number of terms in the series")
+        parser.add_argument("--min_len", type=int, default=10,
+                            help="Min number of terms in the series")
         parser.add_argument("--init_scale", type=int, default=10,
                             help="Scale of the initial terms of the series")
         parser.add_argument("--prob_const", type=float, default=1/3,
@@ -349,10 +358,20 @@ class EnvDataset(Dataset):
         self.count = 0
         self.type = type
         self.input_length_modulo=input_length_modulo
+
         if "nb_ops_prob" in args:
             self.nb_ops_prob = args["nb_ops_prob"]
         else:
             self.nb_ops_prob = None
+        if "test_env_seed" in args:
+            self.test_env_seed = args["test_env_seed"]
+        else:
+            self.test_env_seed = None 
+        if "env_info" in args:
+            self.env_info=args["env_info"]
+        else:
+            self.env_info=None
+
         assert task in RecurrenceEnvironment.TRAINING_TASKS
         assert size is None or not self.train
         assert not params.batch_load or params.reload_size > 0
@@ -457,16 +476,24 @@ class EnvDataset(Dataset):
         if self.train:
             worker_id = self.get_worker_id()
             self.env.worker_id = worker_id
-            self.env.rng = np.random.RandomState(
-                [worker_id, self.global_rank, self.env_base_seed]
-            )
+            seed = [worker_id, self.global_rank, self.env_base_seed]
+            if self.env_info is not None:
+                seed+=[self.env_info]
+            self.env.rng = np.random.RandomState(seed)
             logger.info(
                 f"Initialized random generator for worker {worker_id}, with seed "
-                f"{[worker_id, self.global_rank, self.env_base_seed]} "
+                f"{seed} "
                 f"(base seed={self.env_base_seed})."
             )
         else:
-            self.env.rng = np.random.RandomState(None if self.type == "valid" else 0)
+            worker_id = self.get_worker_id()
+            self.env.worker_id = worker_id
+            seed = self.test_env_seed  if "valid" in self.type else 0
+            self.env.rng = np.random.RandomState(seed)
+            logger.info(
+                "Initialized {} generator, with seed {} (random state: {})".format(self.type, seed, self.env.rng)    
+            )
+            #print(self.generate_sample())
 
     def get_worker_id(self):
         """
@@ -485,7 +512,7 @@ class EnvDataset(Dataset):
         return self.size
 
     def __getitem__(self, index):
-        """
+        """s
         Return a training sample.
         Either generate it, or read it from file.
         """
