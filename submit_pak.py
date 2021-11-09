@@ -80,7 +80,6 @@ class Trainer(object):
         self.args.world_size = job_env.num_tasks
         print(f"Process group: {job_env.num_tasks} tasks, rank: {job_env.global_rank}")
 
-            
 def main():
     
     args = parse_args()
@@ -89,7 +88,8 @@ def main():
     grid = {
         "real_series": [True, False],
         "output_numeric": [True, False],
-        "dimension": [1,2,3],
+        "curriculum_n_ops": [True, False],
+        "dimension": [1],
         "prob_rand": [0.05, 0.0],
         "batch_size": [64],
         "optimizer":["adam_inverse_sqrt,lr=0.0002,warmup_updates=10000"],
@@ -110,16 +110,17 @@ def main():
         args.dec_emb_dim = 512
         args.use_volta32 = True
         args.max_token_len=200
+        args.operators_to_remove=",".join(["r{}".format(i) for i in range(1,16)]+["o{}".format(i) for i in range(1,16)])
         # args.optimizer = 'adam_inverse_sqrt,lr={}'.format(params['lr'])
         
         name = '_'.join(['{}_{}'.format(k,v) for k,v in params.items()])
         args.job_dir = shared_folder / name
         Path(args.job_dir).mkdir(exist_ok=True)
 
-        #for f in os.listdir():
-        #    if f.endswith('.py'):
-        #        shutil.copy2(f, args.job_dir)
-        #dir_util.copy_tree('src', os.path.join(args.job_dir,'src'))
+        for f in os.listdir():
+            if f.endswith('.py'):
+                shutil.copy2(f, args.job_dir)
+        dir_util.copy_tree('src', os.path.join(args.job_dir,'src'))
         os.chdir(args.job_dir)
 
         args.exp_id = args.job_dir.name
