@@ -623,7 +623,7 @@ class Evaluator(object):
             for i in range(len(len1)):
                 src = idx_to_infix(env, x1[1 : len1[i] - 1, i].tolist(), True, False)
                 tgt = idx_to_infix(env, x2[1 : len2[i] - 1, i].tolist(), False, False) 
-                tgt=tgt[1:] 
+                #tgt=tgt[1:] 
                 input_length = src.shape[0]
                 output_length = tgt.shape[0]
                 order=input_length

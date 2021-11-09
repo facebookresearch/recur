@@ -122,11 +122,7 @@ class RecurrenceEnvironment(object):
     def gen_expr(self, train, input_length_modulo=-1, nb_ops=None):
         
         length=self.params.max_len if input_length_modulo!=-1 and not train else None
-        tree, series, predictions, max_len = self.generator.generate( 
-                                                                    rng=self.rng, 
-                                                                    nb_ops=nb_ops,
-                                                                    prediction_points=self.params.output_numeric,
-                                                                    length=length)
+        tree, series, predictions, max_len = self.generator.generate(rng=self.rng, nb_ops=nb_ops, prediction_points=self.params.output_numeric,length=length)
         
         if tree is None:
             return None, None, None, None
@@ -170,15 +166,15 @@ class RecurrenceEnvironment(object):
         n_recurrence_degree = max(tree.get_recurrence_degrees())
         info = {"n_input_points":[], "n_ops": [], "n_recurrence_degree": []}
         for idx in indexes_to_remove:
-            if self.params.output_numeric:
-                if idx==0:
-                    input_seq = series+predictions[:1]
-                elif idx==1:
-                    input_seq=series
-                else:
-                    input_seq=series[:-idx+1]
-            else:
-                input_seq=series[:-idx] if idx>0 else series
+            #if self.params.output_numeric:
+            #    if idx==0:
+            #        input_seq = series+predictions[:1]
+            #    elif idx==1:
+            #        input_seq=series
+            #    else:
+            #        input_seq=series[:-idx+1]
+            #else:
+            input_seq=series[:-idx] if idx>0 else series
             _x = self.input_encoder.encode(input_seq)
             if self.params.output_numeric:
                 if idx>self.params.n_predictions:

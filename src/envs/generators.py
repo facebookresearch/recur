@@ -442,17 +442,17 @@ class RandomRecurrence(Generator):
                 vals = tree.val(series)
             except:
                 #print(e, series, tree.infix())
-                return None, None, None
+                return None, None, None, None
             if any([abs(x)>self.max_number for x in vals]): 
-                return None, None, None
+                return None, None, None, None
 
             try:
                 vals_array = np.array(vals, dtype=np.float)
             except:
                 print(tree, vals)
-                return None, None, None
+                return None, None, None, None
             if np.any(np.isnan(vals_array)): 
-                return None, None, None
+                return None, None, None, None
             series.extend(vals)
             
         if prediction_points:
