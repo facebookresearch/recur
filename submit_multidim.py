@@ -21,19 +21,19 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "multdim"
+FOLDER_NAME = "final/multidim"
 
 def parse_args():
     classification_parser = classification.get_parser()
     parser = argparse.ArgumentParser("Submitit for recur", parents=[classification_parser])
-    parser.add_argument("--ngpus", default=8, type=int, help="Number of gpus to request on each node")
+    parser.add_argument("--ngpus", default=4, type=int, help="Number of gpus to request on each node")
     parser.add_argument("--nodes", default=1, type=int, help="Number of nodes to request")
-    parser.add_argument("--timeout", default=1000, type=int, help="Duration of the job")
+    parser.add_argument("--timeout", default=4000, type=int, help="Duration of the job")
     parser.add_argument("--job_dir", default="", type=str, help="Job dir. Leave empty for automatic.")
 
-    parser.add_argument("--partition", default="devlab,learnfair,scavenge", type=str, help="Partition where to submit")
+    parser.add_argument("--partition", default="learnlab", type=str, help="Partition where to submit")
     parser.add_argument("--use_volta32", action='store_true', help="Big models? Use this")
-    parser.add_argument('--comment', default="icml", type=str,
+    parser.add_argument('--comment', default="nature", type=str,
                         help='Comment to pass to scheduler, e.g. priority message')
     return parser.parse_args()
 
@@ -41,7 +41,7 @@ def parse_args():
 def get_shared_folder() -> Path:
     user = os.getenv("USER")
     if Path("/checkpoint/").is_dir():
-        p = Path(f"/checkpoint/{user}/recur")
+        p = Path(f"/checkpoint/pakamienny/recur")
         # p = p / str(int(time.time()))
         p = p / FOLDER_NAME
         p.mkdir(exist_ok=True)
@@ -80,7 +80,6 @@ class Trainer(object):
         self.args.world_size = job_env.num_tasks
         print(f"Process group: {job_env.num_tasks} tasks, rank: {job_env.global_rank}")
 
-            
 def main():
     
     args = parse_args()
@@ -88,9 +87,12 @@ def main():
 
     grid = {
         "real_series": [True],
-        "dimension": [1],
+        "output_numeric": [True, False],
+        "curriculum_n_ops": [False],
+        "dimension": [2,3],
+        "prob_rand": [0.0],
+        "batch_size": [64],
         "optimizer":["adam_inverse_sqrt,lr=0.0002,warmup_updates=10000"],
-        "prob_rand":[0.1],
     }
 
     def dict_product(d):
@@ -107,7 +109,7 @@ def main():
         args.enc_emb_dim = 512
         args.dec_emb_dim = 512
         args.use_volta32 = True
-        # args.optimizer = 'adam_inverse_sqrt,lr={}'.format(params['lr'])
+        args.max_token_len=200
         
         name = '_'.join(['{}_{}'.format(k,v) for k,v in params.items()])
         args.job_dir = shared_folder / name
@@ -132,7 +134,7 @@ def main():
         if args.comment:
             kwargs['slurm_comment'] = args.comment
         executor.update_parameters(
-            mem_gb= 80 * args.ngpus,
+            mem_gb=320,
             gpus_per_node=args.ngpus,
             tasks_per_node=args.ngpus,
             cpus_per_task=10,

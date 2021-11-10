@@ -21,12 +21,12 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "curriculum"
+FOLDER_NAME = "final/random"
 
 def parse_args():
     classification_parser = classification.get_parser()
     parser = argparse.ArgumentParser("Submitit for recur", parents=[classification_parser])
-    parser.add_argument("--ngpus", default=4, type=int, help="Number of gpus to request on each node")
+    parser.add_argument("--ngpus", default=8, type=int, help="Number of gpus to request on each node")
     parser.add_argument("--nodes", default=1, type=int, help="Number of nodes to request")
     parser.add_argument("--timeout", default=4000, type=int, help="Duration of the job")
     parser.add_argument("--job_dir", default="", type=str, help="Job dir. Leave empty for automatic.")
@@ -41,7 +41,7 @@ def parse_args():
 def get_shared_folder() -> Path:
     user = os.getenv("USER")
     if Path("/checkpoint/").is_dir():
-        p = Path(f"/checkpoint/{user}/recur")
+        p = Path(f"/checkpoint/pakamienny/recur")
         # p = p / str(int(time.time()))
         p = p / FOLDER_NAME
         p.mkdir(exist_ok=True)
@@ -80,18 +80,19 @@ class Trainer(object):
         self.args.world_size = job_env.num_tasks
         print(f"Process group: {job_env.num_tasks} tasks, rank: {job_env.global_rank}")
 
-            
 def main():
     
     args = parse_args()
     shared_folder = get_shared_folder()
 
     grid = {
-        "real_series": [True, False],
+        "real_series": [True],
         "output_numeric": [True, False],
-        "dimension": [2,3],
-        # "prob_rand": [0.05, 0.0],
-        "curriculum_n_ops": [True,],
+        "curriculum_n_ops": [True, False],
+        "dimension": [1],
+        "prob_rand": [0.05],
+        "batch_size": [64],
+        "optimizer":["adam_inverse_sqrt,lr=0.0002,warmup_updates=10000"],
     }
 
     def dict_product(d):
@@ -102,7 +103,7 @@ def main():
     for params in dict_product(grid):
 
         args.master_port = np.random.randint(10001, 20000)
-        args.batch_size = 64
+        args.batch_size = 128
         args.n_enc_layers = 8
         args.n_dec_layers = 8
         args.enc_emb_dim = 512

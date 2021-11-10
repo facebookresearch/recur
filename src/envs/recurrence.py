@@ -345,7 +345,7 @@ class RecurrenceEnvironment(object):
                             help="Minimum probability of generating an example with given n_op, for our curriculum strategy")
         parser.add_argument("--max_len", type=int, default=30,
                             help="Max number of terms in the series")
-        parser.add_argument("--min_len", type=int, default=10,
+        parser.add_argument("--min_len", type=int, default=5,
                             help="Min number of terms in the series")
         parser.add_argument("--init_scale", type=int, default=10,
                             help="Scale of the initial terms of the series")
