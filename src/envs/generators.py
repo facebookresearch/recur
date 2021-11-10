@@ -91,7 +91,6 @@ class Node():
         return self.infix()
     
     def val(self, series, deterministic=False):
-        
         curr_dim = len(series) %self.params.dimension
         if len(self.children) == 0:
             if str(self.value).startswith('x_'):
@@ -110,7 +109,8 @@ class Node():
             elif str(self.value) in math_constants:
                 return getattr(np, str(self.value))
             else:
-                return self.value
+                #print(type(self.value))
+                return eval(self.value)
                
     
         if self.value == 'add':
@@ -225,7 +225,7 @@ class RandomRecurrence(Generator):
         self.max_degree = params.max_degree
         self.max_ops = params.max_ops
         self.max_len = params.max_len
-        self.min_len = params.max_len
+        self.min_len = params.min_len
         self.init_scale = params.init_scale
         self.dimension = params.dimension
 
@@ -304,7 +304,7 @@ class RandomRecurrence(Generator):
             draw = rng.rand()
             if draw < self.prob_const:
                 if  self.float_constants is not None:
-                    return rng.uniform(low=-self.float_constants, high=self.float_constants)
+                    return str(rng.uniform(low=-self.float_constants, high=self.float_constants))
                 else:
 	                return rng.choice(self.constants + self.extra_constants)
                 
@@ -432,6 +432,7 @@ class RandomRecurrence(Generator):
             try:
                 next_values = tree.val(series,dim_to_compute=dim_to_compute)
             except:
+                #print("Bad tree vals. Tree: {}, Series: {}".format(tree, series))
                 #print(e, "degree: {}".format(degree), series, tree.infix())
                 return None, None, None
             for dim in range(self.dimension):
@@ -440,9 +441,11 @@ class RandomRecurrence(Generator):
                     
             if any([abs(x)>self.max_number for x in next_values]): 
                 return None, None, None
+
             try:
                 next_values_array = np.array(next_values, dtype=np.float)
             except:
+                #print("Trying to convert to np array before testing nans")
                 return None, None, None
             
             if np.any(np.isnan(next_values_array)): 
@@ -451,9 +454,9 @@ class RandomRecurrence(Generator):
 
         assert len(series)==max_recurrence_degree*self.dimension, "Problem with initial conditions"
         if length is None: 
-            length = rng.randint(self.min_len, self.max_len+1)
+            n_input_points = rng.randint(self.min_len, self.max_len+1)
 
-        sum_length = length
+        sum_length = n_input_points
         if prediction_points:
             sum_length +=  self.params.n_predictions
 
@@ -462,14 +465,15 @@ class RandomRecurrence(Generator):
             try:
                 vals = tree.val(series)
             except:
-                #print(e, series, tree.infix())
+                #print(series, tree.infix())
+                #print("Bad tree vals. Tree: {}, Series: {}".format(tree, series))
                 return None, None, None, None
             if any([abs(x)>self.max_number for x in vals]): 
                 return None, None, None, None
-
             try:
                 vals_array = np.array(vals, dtype=np.float)
             except:
+                #print("Trying to convert to np array before testing nans")
                 return None, None, None, None
             if np.any(np.isnan(vals_array)): 
                 return None, None, None, None
@@ -482,7 +486,7 @@ class RandomRecurrence(Generator):
             series_input = series
             series_to_predict = None
         
-        return tree, series_input, series_to_predict, length
+        return tree, series_input, series_to_predict, n_input_points
 
     def evaluate(self, src, tgt, hyp, n_predictions=3):
         src_hyp = copy.deepcopy(src)

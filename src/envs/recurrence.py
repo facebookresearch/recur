@@ -132,7 +132,7 @@ class RecurrenceEnvironment(object):
     def gen_expr(self, train, input_length_modulo=-1, nb_ops=None):
         
         length=self.params.max_len if input_length_modulo!=-1 and not train else None
-        tree, series, predictions, max_len = self.generator.generate(rng=self.rng, nb_ops=nb_ops, prediction_points=self.params.output_numeric,length=length)
+        tree, series, predictions, n_input_points = self.generator.generate(rng=self.rng, nb_ops=nb_ops, prediction_points=self.params.output_numeric,length=length)
         
         if tree is None:
             return None, None, None, None
@@ -167,7 +167,7 @@ class RecurrenceEnvironment(object):
             return None, None, None, None
         
         if input_length_modulo!=-1 and not train:
-            indexes_to_remove = [i*input_length_modulo for i in range(self.params.max_len//input_length_modulo+1)]
+            indexes_to_remove = [i*input_length_modulo for i in range((self.params.max_len-self.params.min_len)//input_length_modulo+1)]
         else:
             indexes_to_remove = [0]
 
@@ -201,10 +201,10 @@ class RecurrenceEnvironment(object):
             x.append(_x)
             y.append(_y)
 
-            info["n_input_points"].append(max_len-idx)
+            info["n_input_points"].append(n_input_points-idx)
             info["n_ops"].append(n_ops)
             info["n_recurrence_degree"].append(n_recurrence_degree)
-
+            
         return x, y, tree, info
 
     def code_class(self, tree):
@@ -246,6 +246,8 @@ class RecurrenceEnvironment(object):
             path=(None if data_path is None else data_path[task][0]),
             **args
         )
+        print("Train Input modulo: {}".format(dataset.input_length_modulo))
+
         return DataLoader(
             dataset,
             timeout=(0 if params.num_workers == 0 else 1800),
@@ -282,7 +284,8 @@ class RecurrenceEnvironment(object):
             input_length_modulo=input_length_modulo,
             **args
         )
-        
+        print("Test Input modulo: {}".format(dataset.input_length_modulo))
+
         return DataLoader(
             dataset,
             timeout=0,

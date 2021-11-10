@@ -123,11 +123,11 @@ def get_dump_path(params):
         subprocess.Popen("mkdir -p %s" % params.dump_path, shell=True).wait()
 
 
-def to_cuda(*args):
+def to_cuda(*args,use_cpu=False):
     """
     Move tensors to CUDA.
     """
-    if not CUDA:
+    if not CUDA or use_cpu:
         return args
     return [None if x is None else x.cuda() for x in args]
 
