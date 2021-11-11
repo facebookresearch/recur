@@ -19,7 +19,7 @@ class Encoder(ABC):
     def decode(self, lst):
         pass
 
-class IntegerSeries(Encoder):
+class IntegerSequences(Encoder):
     def __init__(self, params):
         super().__init__(params)
         self.int_base = params.int_base
@@ -74,7 +74,7 @@ class IntegerSeries(Encoder):
             res.append(sign*value)
         return res
     
-class RealSeries(Encoder):
+class FloatSequences(Encoder):
     def __init__(self, params):
         super().__init__(params)
         self.float_precision = params.float_precision
@@ -147,12 +147,16 @@ class Equation(Encoder):
 
 
     def encode(self, tree):
+        if self.params.float_constants is None: return tree.prefix().split(',')
         res = []
         for elem in tree.prefix().split(','):
             try:
-                if isinstance(eval(elem), float):
+                val=float(elem) 
+                if (val).is_integer():
+                    res.append(elem)
+                else:
                     res.append("OOD_constant")
-            except:
+            except ValueError:
                 res.append(elem)
         return res
 

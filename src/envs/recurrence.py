@@ -49,14 +49,14 @@ class RecurrenceEnvironment(object):
         ]
         self.generator = generators.RandomRecurrence(params)
         
-        if self.params.real_series:
-            self.input_encoder = encoders.RealSeries(params)
+        if self.params.float_sequences:
+            self.input_encoder = encoders.FloatSequences(params)
         else:
-            self.input_encoder = encoders.IntegerSeries(params)
+            self.input_encoder = encoders.IntegerSequences(params)
         self.input_words = SPECIAL_WORDS+sorted(list(set(self.input_encoder.symbols)))
         self.output_numeric=self.params.output_numeric
         if self.params.output_numeric:
-            self.output_encoder = encoders.RealSeries(params) if self.params.real_series else encoders.IntegerSeries(params)
+            self.output_encoder = encoders.FloatSequences(params) if self.params.float_sequences else encoders.IntegerSequences(params)
             self.output_words = sorted(list(set(self.output_encoder.symbols)))
         else:
             self.output_encoder = encoders.Equation(params)
@@ -77,7 +77,7 @@ class RecurrenceEnvironment(object):
             self.output_word2id[c]=self.output_word2id["OOD_constant"]
         
         if self.params.float_constants:
-            assert self.params.real_series, "Constants cannot be float when we consider integer series"
+            assert self.params.float_sequences, "Constants cannot be float when we consider integer series"
 
         assert len(self.input_words) == len(set(self.input_words))
         assert len(self.output_words) == len(set(self.output_words))
@@ -132,8 +132,9 @@ class RecurrenceEnvironment(object):
     def gen_expr(self, train, input_length_modulo=-1, nb_ops=None):
         
         length=self.params.max_len if input_length_modulo!=-1 and not train else None
-        tree, series, predictions, n_input_points = self.generator.generate(rng=self.rng, nb_ops=nb_ops, prediction_points=self.params.output_numeric,length=length)
-        
+        tree, series, predictions, n_input_points = self.generator.generate(rng=self.rng, nb_ops=nb_ops, prediction_points=True,length=length)
+        ##compute predictions even in symbolic case
+
         if tree is None:
             return None, None, None, None
         
@@ -141,7 +142,7 @@ class RecurrenceEnvironment(object):
             ##TODO: add noise to predictions
             if self.params.eval_noise:
                 noise = self.params.eval_noise
-                if self.params.real_series:
+                if self.params.float_sequences:
                     noise = self.params.eval_noise * np.random.randn(len(series))
                 else:
                     noise = np.random.randint(size=(len(series),), low=-self.params.eval_noise, high=self.params.eval_noise+1).astype(int)
@@ -225,7 +226,7 @@ class RecurrenceEnvironment(object):
             if eq_hyp is None:
                 return [-1 for _ in range(n_predictions)]
         if self.params.output_numeric:
-            error = self.generator.evaluate_numerical(tgt=eq_tgt, hyp=eq_hyp)                    
+            error = self.generator.evaluate_numeric(tgt=eq_tgt, hyp=eq_hyp)                    
         else:
             if eq_tgt is None: # When we don't have the ground truth, test on last terms
                 error = self.generator.evaluate_without_target(src, eq_hyp, n_predictions)
@@ -304,8 +305,8 @@ class RecurrenceEnvironment(object):
         parser.add_argument("--output_numeric", type=bool_flag, default=True,
                             help="Whether we learn to predict numeric values or a symbolic expression")
         # encoding
-        parser.add_argument("--real_series", type=bool_flag, default=False,
-                            help="Whether to use real series rather than integer series")
+        parser.add_argument("--float_sequences", type=bool_flag, default=False,
+                            help="Whether to use float sequences rather than integer sequences")
 
 
         parser.add_argument("--operators_to_remove", type=str, default="",
@@ -357,9 +358,9 @@ class RecurrenceEnvironment(object):
                             help="Probability to generate n in leafs")
        
         # evaluation
-        parser.add_argument("--float_tolerance", type=float, default=0.001,
+        parser.add_argument("--float_tolerance", type=float, default=0.0,
                             help="error tolerance for float results")
-        parser.add_argument("--more_tolerance", type=str, default="1e-10,1e-9,1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,1e-2,1e-1,0.0", 
+        parser.add_argument("--more_tolerance", type=str, default="0.0,1e-10,1e-9,1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,1e-2,1e-1", 
                             help="additional tolerance limits")
         parser.add_argument("--n_predictions", type=int, default=5, 
                             help="number of next terms to predict")

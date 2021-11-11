@@ -102,7 +102,7 @@ class Node():
                 return 1+int(len(series)/self.params.dimension)
             elif str(self.value) == 'rand':
                 if deterministic: return 0
-                if self.params.real_series:
+                if self.params.float_sequences:
                     return np.random.randn()
                 else:
                     return int(np.random.choice([-1,0,1]))
@@ -146,9 +146,9 @@ class Node():
             x = self.children[0].val(series)
             return x if x>0 else 0
         if self.value == "hello":
-            return 1. if self.params.real_series else 1
+            return 1. if self.params.float_sequences else 1
         if self.value == "hello2":
-            return -1. if self.params.real_series else -1
+            return -1. if self.params.float_sequences else -1
         else:
             return getattr(np,self.value)(self.children[0].val(series))
         
@@ -216,8 +216,7 @@ class RandomRecurrence(Generator):
     def __init__(self, params):
         super().__init__(params)
         self.params = params
-        
-        self.real_series = params.real_series
+        self.float_sequences = params.float_sequences
         self.prob_const = params.prob_const
         self.prob_n = params.prob_n
         self.prob_rand = params.prob_rand
@@ -229,7 +228,7 @@ class RandomRecurrence(Generator):
         self.init_scale = params.init_scale
         self.dimension = params.dimension
 
-        if params.real_series:
+        if params.float_sequences:
             self.max_number = 10**(params.max_exponent+params.float_precision)
             self.operators = copy.deepcopy(operators_real)
         else:
@@ -267,7 +266,7 @@ class RandomRecurrence(Generator):
 
         self.constants = [str(i) for i in range(-self.max_int,self.max_int+1) if i!=0]
     
-        if params.real_series:
+        if params.float_sequences:
             self.constants += math_constants
         self.symbols = list(self.operators) + [f'x_{i}_{j}' for i in range(self.dimension) for j in range(self.max_degree+1)] + self.constants + ['n', '|']
         self.symbols += ['rand']
@@ -421,7 +420,7 @@ class RandomRecurrence(Generator):
         recurrence_degrees = tree.get_recurrence_degrees()
         min_recurrence_degree, max_recurrence_degree = min(recurrence_degrees), max(recurrence_degrees)
 
-        initial_conditions = [[rng.uniform(-self.init_scale, self.init_scale) if self.real_series else rng.randint(-self.init_scale, self.init_scale+1) \
+        initial_conditions = [[rng.uniform(-self.init_scale, self.init_scale) if self.float_sequences else rng.randint(-self.init_scale, self.init_scale+1) \
                                for _ in range(recurrence_degrees[dim])] for dim in range(self.dimension)]
 
         series = [initial_conditions[dim][deg] for dim in range(self.dimension) for deg in range(min_recurrence_degree)]
@@ -509,7 +508,7 @@ class RandomRecurrence(Generator):
             yield [i for i in range(curr, curr+step)]
             curr+=step
 
-    def evaluate_numerical(self, tgt, hyp):
+    def evaluate_numeric(self, tgt, hyp):
         errors = []
         iterator = self.chunks_idx(self.dimension, min=0, max=len(tgt))
         for idx in iterator:
