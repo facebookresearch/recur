@@ -16,10 +16,6 @@ from copy import deepcopy
 
 from .utils import to_cuda
 
-
-TOLERANCE_THRESHOLD = 1e-1
-
-
 logger = getLogger()
 
 
