@@ -86,7 +86,7 @@ def main():
     shared_folder = get_shared_folder()
 
     grid = {
-        "real_series": [True],
+        "float_sequences": [True],
         "output_numeric": [True, False],
         "curriculum_n_ops": [False],
         "dimension": [2,3],
