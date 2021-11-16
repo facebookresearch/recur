@@ -21,7 +21,7 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "real_final/random"
+FOLDER_NAME = "final/random"
 
 def parse_args():
     classification_parser = classification.get_parser()
@@ -41,7 +41,7 @@ def parse_args():
 def get_shared_folder() -> Path:
     user = os.getenv("USER")
     if Path("/checkpoint/").is_dir():
-        p = Path(f"/checkpoint/pakamienny/recur")
+        p = Path(f"/checkpoint/sdascoli/recur")
         # p = p / str(int(time.time()))
         p = p / FOLDER_NAME
         p.mkdir(exist_ok=True)
@@ -88,11 +88,10 @@ def main():
     grid = {
         "float_sequences": [True],
         "output_numeric": [True, False],
-        "curriculum_n_ops": [True, False],
         "dimension": [1],
-        "prob_rand": [0.05],
+        "prob_rand": [0.05, 0.1],
         "batch_size": [64],
-        "optimizer":["adam_inverse_sqrt,lr=0.0002,warmup_updates=10000"],
+        "optimizer":["adam_inverse_sqrt,lr=0.0006,warmup_updates=10000"],
     }
 
     def dict_product(d):
@@ -103,7 +102,6 @@ def main():
     for params in dict_product(grid):
 
         args.master_port = np.random.randint(10001, 20000)
-        args.batch_size = 128
         args.n_enc_layers = 8
         args.n_dec_layers = 8
         args.enc_emb_dim = 512
@@ -134,7 +132,7 @@ def main():
         if args.comment:
             kwargs['slurm_comment'] = args.comment
         executor.update_parameters(
-            mem_gb=320,
+            mem_gb=480,
             gpus_per_node=args.ngpus,
             tasks_per_node=args.ngpus,
             cpus_per_task=10,

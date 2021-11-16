@@ -41,7 +41,7 @@ def parse_args():
 def get_shared_folder() -> Path:
     user = os.getenv("USER")
     if Path("/checkpoint/").is_dir():
-        p = Path(f"/checkpoint/pakamienny/recur")
+        p = Path(f"/checkpoint/sdascoli/recur")
         # p = p / str(int(time.time()))
         p = p / FOLDER_NAME
         p.mkdir(exist_ok=True)
@@ -88,11 +88,10 @@ def main():
     grid = {
         "float_sequences": [True, False],
         "output_numeric": [True, False],
-        "curriculum_n_ops": [True, False],
         "dimension": [1],
         "prob_rand": [0.0],
         "batch_size": [64],
-        "optimizer":["adam_inverse_sqrt,lr=0.0002,warmup_updates=10000"],
+        "optimizer":["adam_inverse_sqrt,lr=0.0006"],
     }
 
     def dict_product(d):
@@ -103,7 +102,6 @@ def main():
     for params in dict_product(grid):
 
         args.master_port = np.random.randint(10001, 20000)
-        args.batch_size = 128
         args.n_enc_layers = 8
         args.n_dec_layers = 8
         args.enc_emb_dim = 512
@@ -141,7 +139,6 @@ def main():
             nodes=args.nodes,
             timeout_min=args.timeout,  # max is 60 * 72
             slurm_partition=args.partition,
-            slurm_signal_delay_s=120,
             **kwargs
         )
 

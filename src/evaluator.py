@@ -64,7 +64,7 @@ class Evaluator(object):
         self.env = trainer.env
         Evaluator.ENV = trainer.env
 
-    def run_all_evals(self, data_types, baselines=[]):
+    def run_all_evals(self, data_types=['valid1'], baselines=[]):
         """
         Run all evaluations.
 

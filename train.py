@@ -81,7 +81,7 @@ def get_parser():
 
     # training parameters
     
-    parser.add_argument("--curriculum_n_ops", type=bool, default=True,
+    parser.add_argument("--curriculum_n_ops", type=bool, default=False,
                     help="Whether we use a curriculum strategy for the number of ops during training")
     parser.add_argument("--env_base_seed", type=int, default=-1,
                         help="Base seed for environments (-1 to use timestamp seed)")

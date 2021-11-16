@@ -4,10 +4,10 @@ from operator import length_hint
 #from turtle import degrees
 import numpy as np
 import math
+import scipy.special
 import copy
 
 from numpy.compat.py3k import npy_load_module
-#from wrapt_timeout_decorator import *
 
 operators_real = {
     'add': 2,
@@ -145,12 +145,15 @@ class Node():
         if self.value == "step":
             x = self.children[0].val(series)
             return x if x>0 else 0
-        if self.value == "hello":
-            return 1. if self.params.float_sequences else 1
-        if self.value == "hello2":
-            return -1. if self.params.float_sequences else -1
+        
+        if self.value == 'fresnel':
+            return scipy.special.fresnel(self.children[0].val(series))[0]
+        if self.value.startswith('eval'):
+            n = self.value[-1]
+            return getattr(scipy.special, self.value[:-1])(n, self.children[0].val(series))[0]
         else:
-            return getattr(np,self.value)(self.children[0].val(series))
+            try: return getattr(np,self.value)(self.children[0].val(series))
+            except: return getattr(scipy.special,self.value)(self.children[0].val(series))
         
     def get_recurrence_degree(self):
         recurrence_degree=0
@@ -260,7 +263,7 @@ class RandomRecurrence(Generator):
         self.binaries = [o for o in self.operators.keys() if np.abs(self.operators[o]) == 2] + self.extra_binary_operators
         self.binaries_probabilities=np.array([1.0 if o in self.extra_binary_operators or self.operators[o]>0 else 0.0 for o in self.binaries])
         self.binaries_probabilities/=self.binaries_probabilities.sum()
-
+        
         self.unary = len(self.unaries) > 0
         self.distrib = self.generate_dist(2 * self.max_ops)
 
@@ -454,6 +457,7 @@ class RandomRecurrence(Generator):
         assert len(series)==max_recurrence_degree*self.dimension, "Problem with initial conditions"
         if length is None: 
             n_input_points = rng.randint(self.min_len, self.max_len+1)
+        else: n_input_points = length
 
         sum_length = n_input_points
         if prediction_points:

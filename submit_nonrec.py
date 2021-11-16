@@ -21,7 +21,7 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "final/multidim"
+FOLDER_NAME = "final/nonrec"
 
 def parse_args():
     classification_parser = classification.get_parser()
@@ -31,9 +31,9 @@ def parse_args():
     parser.add_argument("--timeout", default=4000, type=int, help="Duration of the job")
     parser.add_argument("--job_dir", default="", type=str, help="Job dir. Leave empty for automatic.")
 
-    parser.add_argument("--partition", default="learnlab", type=str, help="Partition where to submit")
+    parser.add_argument("--partition", default="devlab,learnlab", type=str, help="Partition where to submit")
     parser.add_argument("--use_volta32", action='store_true', help="Big models? Use this")
-    parser.add_argument('--comment', default="nature", type=str,
+    parser.add_argument('--comment', default="deadline", type=str,
                         help='Comment to pass to scheduler, e.g. priority message')
     return parser.parse_args()
 
@@ -86,11 +86,12 @@ def main():
     shared_folder = get_shared_folder()
 
     grid = {
-        "float_sequences": [True],
+        "float_sequences": [True, False],
         "output_numeric": [True, False],
-        "dimension": [2,3],
         "batch_size": [64],
-        "optimizer":["adam_inverse_sqrt,lr=0.0003"],
+        "optimizer":["adam_inverse_sqrt,lr=0.0006"],
+        "prob_const":[.5],
+        "prob_n": [.5]
     }
 
     def dict_product(d):
@@ -99,7 +100,7 @@ def main():
             yield dict(zip(keys, element))
 
     for params in dict_product(grid):
-
+        
         args.master_port = np.random.randint(10001, 20000)
         args.n_enc_layers = 8
         args.n_dec_layers = 8
