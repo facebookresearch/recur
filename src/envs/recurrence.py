@@ -247,8 +247,6 @@ class RecurrenceEnvironment(object):
             path=(None if data_path is None else data_path[task][0]),
             **args
         )
-        print("Train Input modulo: {}".format(dataset.input_length_modulo))
-
         return DataLoader(
             dataset,
             timeout=(0 if params.num_workers == 0 else 1800),
@@ -285,8 +283,6 @@ class RecurrenceEnvironment(object):
             input_length_modulo=input_length_modulo,
             **args
         )
-        print("Test Input modulo: {}".format(dataset.input_length_modulo))
-
         return DataLoader(
             dataset,
             timeout=0,

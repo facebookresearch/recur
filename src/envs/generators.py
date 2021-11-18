@@ -146,6 +146,8 @@ class Node():
             x = self.children[0].val(series)
             return x if x>0 else 0
         
+        if self.value == "id":
+            return self.children[0].val(series)
         if self.value == 'fresnel':
             return scipy.special.fresnel(self.children[0].val(series))[0]
         if self.value.startswith('eval'):
