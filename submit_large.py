@@ -87,8 +87,8 @@ def main():
 
     grid = {
         "float_sequences": [True, False],
-        "output_numeric": [True, False],
-        "batch_size": [64],
+        "output_numeric":  [True, False],
+        "batch_size": [32],
         "optimizer":["adam_inverse_sqrt,lr=0.0001"],
     }
 
