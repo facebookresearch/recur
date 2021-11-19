@@ -93,7 +93,7 @@ def get_parser():
                         help="Number of sentences per batch during evaluation (if None, set to 1.5*batch_size)")
     parser.add_argument("--optimizer", type=str, default="adam_inverse_sqrt,lr=0.0002,warmup_updates=10000",
                         help="Optimizer (SGD / RMSprop / Adam, etc.)")
-    parser.add_argument("--clip_grad_norm", type=float, default=5,
+    parser.add_argument("--clip_grad_norm", type=float, default=1,
                         help="Clip gradients norm (0 to disable)")
     parser.add_argument("--epoch_size", type=int, default=300000,
                         help="Epoch size / evaluation frequency")

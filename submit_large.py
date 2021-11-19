@@ -88,8 +88,6 @@ def main():
     grid = {
         "float_sequences": [True, False],
         "output_numeric": [True, False],
-        "dimension": [1],
-        "prob_rand": [0.0],
         "batch_size": [64],
         "optimizer":["adam_inverse_sqrt,lr=0.0001"],
     }

@@ -358,7 +358,7 @@ class RecurrenceEnvironment(object):
                             help="error tolerance for float results")
         parser.add_argument("--more_tolerance", type=str, default="0.0,1e-10,1e-9,1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,1e-2,1e-1", 
                             help="additional tolerance limits")
-        parser.add_argument("--n_predictions", type=int, default=5, 
+        parser.add_argument("--n_predictions", type=int, default=10, 
                             help="number of next terms to predict")
 
 

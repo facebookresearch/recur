@@ -114,7 +114,7 @@ def sympy_infix(tree):
 
 def load_run(run, new_args=None):
     
-    if new_args is None: new_args = run['args']
+    if new_args is None: new_args = copy.deepcopy(run['args'])
     new_args.multi_gpu = False
     new_args.tasks = 'recurrence'
     env = build_env(new_args)
@@ -132,13 +132,15 @@ def eval_run(run, new_args=None):
     return scores
 
       
-def predict(params, series=None, pred_len=None, beam_size=None, beam_length_penalty=None, verbose=False, gen_kwargs={}):
+def predict(args, env, modules, series=None, pred_len=None, beam_size=None, beam_length_penalty=None, verbose=False, gen_kwargs={}):
+    
+    encoder, decoder = modules["encoder"], modules["decoder"]
     
     if beam_length_penalty is None: beam_length_penalty = args.beam_length_penalty
     if beam_size is None: beam_size = args.beam_size
         
     if series is None:
-        generator = RandomRecurrence(params)
+        generator = env.generator
         rng = np.random.RandomState(0)
         rng.seed()
         while True:
@@ -174,60 +176,53 @@ def predict(params, series=None, pred_len=None, beam_size=None, beam_length_pena
     #pred_tree = env.output_encoder.decode(prefix)[0]
     pred = env.output_encoder.decode(tokens)
     
-    if params.output_numeric:
+    if args.output_numeric:
         series.extend(pred[1:])
     
     pred_series = copy.deepcopy(series)
     if pred_len is None: pred_len = len(series)//args.dimension
     for i in range(pred_len):
         if tree: series.extend(tree.val(series))
-        if not params.output_numeric: pred_series.extend(pred.val(pred_series))
+        if not args.output_numeric: pred_series.extend(pred.val(pred_series))
     
     return tree, pred, series, pred_series, score
 
-
-############################  OEIS   ############################
-
-def check_oeis(identifier):
-    import urllib.request
-    uf = urllib.request.urlopen("https://oeis.org/"+identifier)
-    text = str(uf.read())
-    length = len(text)
-    return ('FORMULA' in text) and ('G.f.:' in text), length
+def predict_batch(args, env, modules, batch, pred_len=3):
     
-def clean_oeis(length=20, n_seqs = -1):
-    n_kept, n_rejected = 0, 0
-    with open("/private/home/sdascoli/recur/OEIS.txt", 'r') as f:
-        with open("/private/home/sdascoli/recur/OEIS_clean.txt", 'w') as w: 
-            for i, line in enumerate(f.readlines()):
-                if i%100==0: 
-                    print(n_kept, n_rejected, end='\t')
-                    w.flush()
-                if n_kept==n_seqs: return n_kept, n_rejected
-                identifier = line[:8]
-                if len(line.split(','))<30 or (not check_oeis(identifier)): 
-                    n_rejected += 1
-                    continue
-                w.write(line)
-                n_kept += 1
-    f.close(); w.close()
-    return n_kept, n_rejected
+    encoder, decoder = modules["encoder"], modules["decoder"]
+        
+    x = [env.input_encoder.encode(seq) for seq in batch]
+    x = [torch.LongTensor([env.input_word2id[w] for w in seq]) for seq in x]
+    x, x_len = env.batch_sequences(x)
+    x, x_len = x.cuda(), x_len.cuda()
+    encoded = encoder("fwd", x=x, lengths=x_len, causal=False)
+    gen, _, scores = decoder.generate_beam(
+                    encoded.transpose(0, 1),
+                    x_len,
+                    beam_size=1,
+                    length_penalty=args.beam_length_penalty,
+                    early_stopping=args.beam_early_stopping,
+                    max_len=args.max_len
+    )
+    gens = gen.cpu().numpy()[1:-1,:].T
+    tokens = [[env.output_id2word[wid] for wid in gen] for gen in gens]
+    tokens = [[token for token in seq if token not in ['PAD', 'EOS']] for seq in tokens]
+    preds = [env.output_encoder.decode(token) for token in tokens]
 
-def load_oeis():
-    lines = []
-    ids   = []
-    lens  = []
-    with open("/private/home/sdascoli/recur/OEIS_clean.txt", 'r') as f:
-        for line in f.readlines():
-            #print(line)
-            x = [int(x) for x in line.split(',')[1:-1]]
-            if len(x)<21: continue
-            x = x[:30]
-            lens.append(len(x))
-            lines.append(x)    
-            ids.append(line.split(',')[0])
-    print(len(lines), np.mean(lens))
-    return lines, ids
+    pred_series = []
+    for i, seq in enumerate(batch):
+        if not preds[i]: pred_series.append(None)
+        else:
+            if args.output_numeric: pred_series.append(preds[i])
+            else:
+                pred_seq = copy.deepcopy(seq)
+                for _ in range(pred_len):
+                    if pred_seq[-1]>args.max_number: break
+                    pred_seq.extend(preds[i].val(pred_seq))
+                pred_series.append(pred_seq[len(seq):])
+    
+    return preds, pred_series
+
 
 
 ############################ OPERATOR FAMILIES ############################
@@ -253,3 +248,58 @@ od_groups = {
              'fresnel': ['erf', 'erfinv', 'wofz', 'dawsn', 'fresnel'],
              'bessel' : ['j0','j1','y0','y1','i0','i0e','i1','i1e','k0','k0e','k1','k1e']
             }
+
+############################ ATTENTION MAPS ############################
+
+def plot_attention(args, env, modules):
+    
+    encoder, decoder = modules["encoder"], modules["decoder"]
+    encoder.STORE_OUTPUTS = True
+    num_heads = model.n_heads
+    num_layers = model.n_layers
+    
+    new_args = copy.deepcopy(args)
+    new_args.series_length = 15
+    while True:
+        #try:
+        tree, pred_tree, series, preds, score = predict(new_args, env, modules, kwargs={'nb_ops':3, 'deg':3, 'length':10})
+        break
+        #except Exception as e:
+            #print(e, end=' ')
+    pred, true = readable_infix(pred_tree), readable_infix(tree)
+    separations = [idx for idx, val in enumerate(np.array(env.input_encoder.encode(series[:len(series)//2+1]))) if val in ['+','-']]
+            
+    plt.figure(figsize=(4,4))
+    plt.plot(series)
+    plt.plot(preds, ls='--')
+    plt.title(f'True: {true}\nPred: {pred}\nConfidence: {confidence:.2}', fontsize=10)
+    plt.tight_layout()
+    plt.savefig(savedir+'attention_plot_{}.pdf'.format(args.real_series))
+        
+    fig, axarr = plt.subplots(num_layers, num_heads, figsize=(2*num_heads,2*num_layers), constrained_layout=True)        
+        
+    for l in range(num_layers):
+        module = model.attentions[l]
+        scores = module.outputs.squeeze()
+        
+        for head in range(num_heads):                  
+            axarr[l][head].matshow(scores[head])
+            
+            axarr[l][head].set_xticks([]) 
+            axarr[l][head].set_yticks([]) 
+            #for val in separations: 
+            #    axarr[l][head].axvline(val, color='red', lw=.5)
+            #    axarr[l][head].axhline(val, color='red', lw=.5)
+                
+    cols = [r'Head {}'.format(col+1) for col in range(num_heads)]
+    rows = ['Layer {}'.format(row+1) for row in range(num_layers)]
+    for icol, col in enumerate(cols):
+        axarr[0][icol].set_title(col, fontsize=18, pad=10)
+    for irow, row in enumerate(rows):
+        axarr[irow][0].set_ylabel(row, fontsize=18, labelpad=10)
+
+    plt.tight_layout()
+    plt.savefig(savedir+'attention_{}.pdf'.format(args.real_series))
+    plt.show()
+    
+    return tree, pred_tree, series, preds, score
