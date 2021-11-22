@@ -27,13 +27,13 @@ def parse_args():
     classification_parser = classification.get_parser()
     parser = argparse.ArgumentParser("Submitit for recur", parents=[classification_parser])
     parser.add_argument("--ngpus", default=8, type=int, help="Number of gpus to request on each node")
-    parser.add_argument("--nodes", default=1, type=int, help="Number of nodes to request")
+    parser.add_argument("--nodes", default=2, type=int, help="Number of nodes to request")
     parser.add_argument("--timeout", default=4000, type=int, help="Duration of the job")
     parser.add_argument("--job_dir", default="", type=str, help="Job dir. Leave empty for automatic.")
 
-    parser.add_argument("--partition", default="devlab,learnlab", type=str, help="Partition where to submit")
+    parser.add_argument("--partition", default="learnlab", type=str, help="Partition where to submit")
     parser.add_argument("--use_volta32", action='store_true', help="Big models? Use this")
-    parser.add_argument('--comment', default="deadline", type=str,
+    parser.add_argument('--comment', default="nature", type=str,
                         help='Comment to pass to scheduler, e.g. priority message')
     return parser.parse_args()
 
@@ -86,12 +86,13 @@ def main():
     shared_folder = get_shared_folder()
 
     grid = {
-        "float_sequences": [True, False],
+        "float_sequences": [True],
         "output_numeric": [True, False],
-        "batch_size": [64],
-        "optimizer":["adam_inverse_sqrt,lr=0.0006"],
-        "prob_const":[.5],
-        "prob_n": [.5]
+        "dimension": [1],
+        "prob_const": [0.5],
+        "prob_n": [0.5],
+        "batch_size": [32],
+        "optimizer":["adam_inverse_sqrt,lr=0.0001"],
     }
 
     def dict_product(d):
@@ -100,12 +101,12 @@ def main():
             yield dict(zip(keys, element))
 
     for params in dict_product(grid):
-        
+
         args.master_port = np.random.randint(10001, 20000)
         args.n_enc_layers = 8
         args.n_dec_layers = 8
-        args.enc_emb_dim = 512
-        args.dec_emb_dim = 512
+        args.enc_emb_dim = 1024
+        args.dec_emb_dim = 1024
         args.use_volta32 = True
         args.max_token_len=200
         
@@ -132,13 +133,14 @@ def main():
         if args.comment:
             kwargs['slurm_comment'] = args.comment
         executor.update_parameters(
-            mem_gb=320,
+            mem_gb=480,
             gpus_per_node=args.ngpus,
             tasks_per_node=args.ngpus,
             cpus_per_task=10,
             nodes=args.nodes,
             timeout_min=args.timeout,  # max is 60 * 72
             slurm_partition=args.partition,
+            slurm_signal_delay_s=120,
             **kwargs
         )
 

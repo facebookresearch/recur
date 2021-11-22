@@ -199,11 +199,12 @@ def predict_batch(args, env, modules, batch, pred_len=3):
     gen, _, scores = decoder.generate_beam(
                     encoded.transpose(0, 1),
                     x_len,
-                    beam_size=1,
+                    beam_size=args.beam_size,
                     length_penalty=args.beam_length_penalty,
                     early_stopping=args.beam_early_stopping,
                     max_len=args.max_len
     )
+
     gens = gen.cpu().numpy()[1:-1,:].T
     tokens = [[env.output_id2word[wid] for wid in gen] for gen in gens]
     tokens = [[token for token in seq if token not in ['PAD', 'EOS']] for seq in tokens]
@@ -234,7 +235,6 @@ all_ops = list(operators_real.keys())
 id_groups = {
              'base': ['add','sub','mul'],
              'div' : ['div'],
-             'abs' : ['abs'],
              'sqrt': ['sqrt'],
              'exp' : ['log', 'exp'],
              'trig': ['sin', 'cos', 'tan','arcsin', 'arccos', 'arctan']

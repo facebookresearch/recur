@@ -27,7 +27,7 @@ def parse_args():
     classification_parser = classification.get_parser()
     parser = argparse.ArgumentParser("Submitit for recur", parents=[classification_parser])
     parser.add_argument("--ngpus", default=8, type=int, help="Number of gpus to request on each node")
-    parser.add_argument("--nodes", default=1, type=int, help="Number of nodes to request")
+    parser.add_argument("--nodes", default=2, type=int, help="Number of nodes to request")
     parser.add_argument("--timeout", default=4000, type=int, help="Duration of the job")
     parser.add_argument("--job_dir", default="", type=str, help="Job dir. Leave empty for automatic.")
 
@@ -89,9 +89,9 @@ def main():
         "float_sequences": [True],
         "output_numeric": [True, False],
         "dimension": [1],
-        "prob_rand": [0.05, 0.1],
-        "batch_size": [64],
-        "optimizer":["adam_inverse_sqrt,lr=0.0006,warmup_updates=10000"],
+        "prob_rand": [0.1],
+        "batch_size": [32],
+        "optimizer":["adam_inverse_sqrt,lr=0.0001"],
     }
 
     def dict_product(d):
@@ -104,8 +104,8 @@ def main():
         args.master_port = np.random.randint(10001, 20000)
         args.n_enc_layers = 8
         args.n_dec_layers = 8
-        args.enc_emb_dim = 512
-        args.dec_emb_dim = 512
+        args.enc_emb_dim = 1024
+        args.dec_emb_dim = 1024
         args.use_volta32 = True
         args.max_token_len=200
         

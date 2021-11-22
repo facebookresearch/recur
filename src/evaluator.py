@@ -94,7 +94,7 @@ class Evaluator(object):
 
     def enc_dec_step_beam(self, data_type, task, scores):
         """
-        Encoding / decoding step with beam generation and SymPy check.
+        Encoding / decoding step with beam generation 
         """
 
         n_infos_prior = 50
@@ -401,6 +401,10 @@ class Evaluator(object):
                 scores[f"{data_type}_{task}_beam_acc_{info_type}_{i}"] = (
                     100.0 * (n_valid_info[i].item()) / n_total_info[i].item()
                 )
+                
+                
+                
+    #####################################################################################
 
     def classic_method_evaluate(self, method, data_type, task, scores, args={}):
         """

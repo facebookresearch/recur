@@ -1,52 +1,65 @@
 import numpy as np
+import urllib.request
 
 ############################  OEIS   ############################
 
-def check_oeis(identifier):
-    import urllib.request
-    uf = urllib.request.urlopen("https://oeis.org/"+identifier)
-    text = str(uf.read())
+# patterns:
+# nice: an exceptionally nice sequence
+# formula: FORMULA
+# easy: very easy to produce terms of sequence
+
+def read_url(address):
+    try:
+        with urllib.request.urlopen(address) as uf:
+            text = str(uf.read())
+    except: 
+        with urllib.request.urlopen(address) as uf:
+            text = str(uf.read())
+    return text
+
+def check_patterns(identifier, patterns=[], exclude=[]):
+    text = read_url("https://oeis.org/"+identifier)
     length = len(text)
-    return ('FORMULA' in text) and ('G.f.:' in text), length
     
-def clean_oeis(n_seqs = -1):
+    good = []
+    bad  = []
+    for pattern in patterns:
+        good.append(pattern in text)
+    for pattern in exclude:
+        bad.append(pattern in text)
+    valid = all(good) and not any(bad)
+
+    return valid, length
+
+def clean_oeis(n_seqs = -1, path="/private/home/sdascoli/recur/", dataset_type='easy2', exclude=[]):
+    if dataset_type.startswith('easy'):
+        patterns=["easy to produce"]
+    elif dataset_type=='nice':
+        patterns=["exceptionally nice"]
+    else:
+        raise NotImplementedError
     n_kept, n_rejected = 0, 0
-    with open("/private/home/sdascoli/recur/OEIS.txt", 'r') as f:
-        with open("/private/home/sdascoli/recur/OEIS_clean.txt", 'w') as w: 
+    lines = []
+    with open(path+"OEIS.txt", 'r') as f:
+        with open(path+f"OEIS_{dataset_type}.txt", 'w') as w: 
             for i, line in enumerate(f.readlines()):
                 if i%100==0: 
-                    print(n_kept, n_rejected, end='\t')
+                    print(n_kept, n_rejected, end='\t', flush=True)
                     w.flush()
-                if n_kept==n_seqs: return n_kept, n_rejected
+                if n_kept==n_seqs: break
                 identifier = line[:8]
-                valid, length =  check_oeis(identifier)
-                if len(line.split(','))<30 or not valid: 
+                valid, length = check_patterns(identifier, patterns)
+                if len(line.split(','))<40 or not valid: 
                     n_rejected += 1
                     continue
                 w.write(line)
+                lines.append((length,line))
                 n_kept += 1
     f.close(); w.close()
-    return n_kept, n_rejected
-
-def rank_oeis(n_seqs = -1):
-    n_kept, n_rejected = 0, 0
-    lines = []
-    with open("/private/home/sdascoli/recur/OEIS.txt", 'r') as f:
-        for i, line in enumerate(f.readlines()):
-            if i%100==0: 
-                print(n_kept, n_rejected, end='\t', flush=True)
-            if n_kept==n_seqs: break
-            identifier = line[:8]
-            valid, length =  check_oeis(identifier)
-            if len(line.split(','))<30 or not valid: 
-                n_rejected += 1
-                continue
-            lines.append((length, line))
-            n_kept += 1
     lines = sorted(lines, key = lambda x : x[0], reverse=True)
-    with open("/private/home/sdascoli/recur/OEIS_ranked.txt", 'w') as w: 
+    with open(path+f"OEIS_{dataset_type}_ranked.txt", 'w') as w: 
         for line in lines:
-            w.write(line[1])
+            w.write(line[1])    
     return n_kept, n_rejected
 
 def load_oeis(length = 40, path = "/private/home/sdascoli/recur/OEIS_clean.txt"):
@@ -66,4 +79,4 @@ def load_oeis(length = 40, path = "/private/home/sdascoli/recur/OEIS_clean.txt")
     return lines, ids
 
 if __name__=='__main__':
-    rank_oeis(200)
+    clean_oeis(100000)
