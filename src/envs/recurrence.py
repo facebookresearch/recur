@@ -17,6 +17,7 @@ import json
 import numpy as np
 import src.envs.encoders as encoders
 import src.envs.generators as generators
+import src.envs.simplifiers as simplifiers
 from src.envs.generators import all_operators
 
 import torch
@@ -305,8 +306,6 @@ class RecurrenceEnvironment(object):
                             help="Whether we learn to predict numeric values or a symbolic expression")
         parser.add_argument("--float_sequences", type=bool_flag, default=False,
                             help="Whether to use float sequences rather than integer sequences")
-        parser.add_argument("--use_sympy", type=bool_flag, default=True,
-                            help="Whether to use simplification")
         parser.add_argument("--use_sympy", type=bool_flag, default=True,
                             help="Whether to use sympy parsing (basic simplification)")
         parser.add_argument("--simplify", type=bool_flag, default=False,
