@@ -136,6 +136,7 @@ class Equation(Encoder):
     def __init__(self, params):
         super().__init__(params)
         self.params = params
+        self.max_int = self.params.max_int
         if params.extra_unary_operators!="":
             self.extra_unary_operators=self.params.extra_unary_operators.split(",")
         else:
@@ -145,15 +146,13 @@ class Equation(Encoder):
         else:
             self.extra_binary_operators=[]
 
-
     def encode(self, tree):
-        if self.params.float_constants is None: return tree.prefix().split(',')
         res = []
         for elem in tree.prefix().split(','):
             try:
                 val=float(elem) 
                 if (val).is_integer():
-                    res.append(elem)
+                    res.extend(self.write_int(int(elem)))
                 else:
                     res.append("OOD_constant")
             except ValueError:
@@ -178,15 +177,11 @@ class Equation(Encoder):
                 res.push_child(child)
                 pos += length
             return res, pos
+        elif lst[0].startswith('INT'):
+            val, length = self.parse_int(lst)
+            return Node(val, self.params), length
         else:
             return Node(lst[0], self.params), 1        
-
-    def split_at_value(self, lst, value):
-        indices = [i for i, x in enumerate(lst) if x==value]
-        res = []
-        for start, end in zip([0, *[i+1 for i in indices]], [*[i-1 for i in indices], len(lst)]):
-            res.append(lst[start:end+1])
-        return res
     
     def decode(self, lst):
         trees = []
@@ -197,4 +192,49 @@ class Equation(Encoder):
             trees.append(tree)
         tree = NodeList(trees)
         return tree
+    
+    def split_at_value(self, lst, value):
+        indices = [i for i, x in enumerate(lst) if x==value]
+        res = []
+        for start, end in zip([0, *[i+1 for i in indices]], [*[i-1 for i in indices], len(lst)]):
+            res.append(lst[start:end+1])
+        return res
+    
+    def parse_int(self, lst):
+        """
+        Parse a list that starts with an integer.
+        Return the integer value, and the position it ends in the list.
+        """
+        base = self.max_int
+        val = 0
+        i = 0
+        for x in lst[1:]:
+            if not (x.isdigit() or x[0] == '-' and x[1:].isdigit()):
+                break
+            val = val * base + int(x)
+            i += 1
+        if base > 0 and lst[0] == 'INT-':
+            val = -val
+        return val, i + 1
+
+    def write_int(self, val):
+        """
+        Convert a decimal integer to a representation in the given base.
+        """
+        base = self.max_int
+        res = []
+        max_digit = abs(base)
+        neg = val < 0
+        val = -val if neg else val
+        while True:
+            rem = val % base
+            val = val // base
+            if rem < 0 or rem > max_digit:
+                rem -= base
+                val += 1
+            res.append(str(rem))
+            if val == 0:
+                break
+        res.append('INT-' if neg else 'INT+')
+        return res[::-1]
             

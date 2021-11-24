@@ -62,6 +62,8 @@ class RecurrenceEnvironment(object):
             self.output_encoder = encoders.Equation(params)
             self.output_words = sorted(list(set(self.generator.symbols)))
         self.output_words = SPECIAL_WORDS+self.output_words
+        
+        if params.use_sympy: self.simplifier = simplifiers.Simplifier(self.output_encoder, self.generator)
     
         # number of words / indices
         self.input_id2word = {i: s for i, s in enumerate(self.input_words)}
@@ -133,6 +135,7 @@ class RecurrenceEnvironment(object):
         
         length=self.params.max_len if input_length_modulo!=-1 and not train else None
         tree, series, predictions, n_input_points = self.generator.generate(rng=self.rng, nb_ops=nb_ops, prediction_points=True,length=length)
+        if self.use_sympy: tree = self.simplifier.simplify_tree(tree)
         ##compute predictions even in symbolic case
 
         if tree is None:
@@ -300,11 +303,16 @@ class RecurrenceEnvironment(object):
         
         parser.add_argument("--output_numeric", type=bool_flag, default=True,
                             help="Whether we learn to predict numeric values or a symbolic expression")
-        # encoding
         parser.add_argument("--float_sequences", type=bool_flag, default=False,
                             help="Whether to use float sequences rather than integer sequences")
-
-
+        parser.add_argument("--use_sympy", type=bool_flag, default=True,
+                            help="Whether to use simplification")
+        parser.add_argument("--use_sympy", type=bool_flag, default=True,
+                            help="Whether to use sympy parsing (basic simplification)")
+        parser.add_argument("--simplify", type=bool_flag, default=False,
+                            help="Whether to use further sympy simplification")
+        
+        # encoding
         parser.add_argument("--operators_to_remove", type=str, default="",
                             help="Which operator to remove")
         parser.add_argument("--required_operators", type=str, default="",

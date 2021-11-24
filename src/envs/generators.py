@@ -1,13 +1,11 @@
 from abc import ABC, abstractmethod
 from ast import parse
 from operator import length_hint
-#from turtle import degrees
 import numpy as np
+
 import math
 import scipy.special
 import copy
-
-from numpy.compat.py3k import npy_load_module
 
 operators_real = {
     'add': 2,
@@ -273,11 +271,12 @@ class RandomRecurrence(Generator):
     
         if params.float_sequences:
             self.constants += math_constants
-        self.symbols = list(self.operators) + [f'x_{i}_{j}' for i in range(self.dimension) for j in range(self.max_degree+1)] + self.constants + ['n', '|']
-        self.symbols += ['rand']
+        self.variables = ['n', 'rand'] + [f'x_{i}_{j}' for i in range(self.dimension) for j in range(self.max_degree+1)]
+        self.symbols = list(self.operators) + self.constants + self.variables + ['|', 'INT+', 'INT-']
+        self.math_constants = math_constants
         self.extra_constants = self.params.extra_constants.split(",")
         self.float_constants = self.params.float_constants
-
+        
     def generate_dist(self, max_ops):
         """
         `max_ops`: maximum number of operators
@@ -490,7 +489,7 @@ class RandomRecurrence(Generator):
         else:
             series_input = series
             series_to_predict = None
-        
+                    
         return tree, series_input, series_to_predict, n_input_points
 
     def evaluate(self, src, tgt, hyp, n_predictions=3):
@@ -542,4 +541,5 @@ class RandomRecurrence(Generator):
     
     def evaluate_classical_baselines(self, src, hyp):
         raise NotImplementedError
-     
+        
+        
