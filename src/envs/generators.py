@@ -38,9 +38,13 @@ operators_int = {
     'sign': 1,
 }
 
+operators_extra = {
+    'pow': 2
+}
+
 math_constants = ['e','pi','euler_gamma']
 
-all_operators = {**operators_real, **operators_int}
+all_operators = {**operators_real, **operators_int, **operators_extra}
 
 class Node():
     def __init__(self, value, params, children=None):

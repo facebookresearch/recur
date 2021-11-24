@@ -62,9 +62,9 @@ class RecurrenceEnvironment(object):
         else:
             self.output_encoder = encoders.Equation(params)
             self.output_words = sorted(list(set(self.generator.symbols)))
-        self.output_words = SPECIAL_WORDS+self.output_words
+        self.output_words = self.output_words + SPECIAL_WORDS + ['pow', '0']
         
-        if params.use_sympy: self.simplifier = simplifiers.Simplifier(self.output_encoder, self.generator)
+        if params.use_sympy and not params.output_numeric: self.simplifier = simplifiers.Simplifier(self.output_encoder, self.generator)
     
         # number of words / indices
         self.input_id2word = {i: s for i, s in enumerate(self.input_words)}
@@ -136,11 +136,13 @@ class RecurrenceEnvironment(object):
         
         length=self.params.max_len if input_length_modulo!=-1 and not train else None
         tree, series, predictions, n_input_points = self.generator.generate(rng=self.rng, nb_ops=nb_ops, prediction_points=True,length=length)
-        if self.use_sympy: tree = self.simplifier.simplify_tree(tree)
-        ##compute predictions even in symbolic case
-
         if tree is None:
             return None, None, None, None
+        # print('before',tree)
+        if self.params.use_sympy: tree = self.simplifier.simplify_tree(tree)
+        # print('after',tree)
+        
+        ##compute predictions even in symbolic case
         
         if not train:
             ##TODO: add noise to predictions
@@ -302,7 +304,7 @@ class RecurrenceEnvironment(object):
         Register environment parameters.
         """
         
-        parser.add_argument("--output_numeric", type=bool_flag, default=True,
+        parser.add_argument("--output_numeric", type=bool_flag, default=False,
                             help="Whether we learn to predict numeric values or a symbolic expression")
         parser.add_argument("--float_sequences", type=bool_flag, default=False,
                             help="Whether to use float sequences rather than integer sequences")

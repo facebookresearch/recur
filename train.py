@@ -261,7 +261,7 @@ def main(params):
                         neg_accuracy_per_n_ops[op]=min_neg_accuracy_per_n_ops
                 neg_accuracy_per_n_ops = {key : neg_accuracy_per_n_ops[key] for key in sorted(neg_accuracy_per_n_ops.keys())}
                 probabilities = np.array(list(neg_accuracy_per_n_ops.values()))
-                assert probabilities.shape[0] == params.max_ops
+                probabilities = probabilities[:params.max_ops]
                 probabilities /= probabilities.sum()
                 trainer.set_new_train_iterator_params({"nb_ops_prob": probabilities, "env_info": trainer.epoch})
                 

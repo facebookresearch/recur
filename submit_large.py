@@ -21,7 +21,7 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "final/large"
+FOLDER_NAME = "paper/large"
 
 def parse_args():
     classification_parser = classification.get_parser()
@@ -88,7 +88,7 @@ def main():
     grid = {
         "float_sequences": [True, False],
         "output_numeric":  [True, False],
-        "batch_size": [16],
+        "batch_size": [32],
         "optimizer":["adam_inverse_sqrt,lr=0.0001"],
     }
 
@@ -102,8 +102,8 @@ def main():
         args.master_port = np.random.randint(10001, 20000)
         args.n_enc_layers = 8
         args.n_dec_layers = 8
-        args.enc_emb_dim = 1600
-        args.dec_emb_dim = 1600
+        args.enc_emb_dim = 1024
+        args.dec_emb_dim = 1024
         args.use_volta32 = True
         args.max_token_len= 200
         
