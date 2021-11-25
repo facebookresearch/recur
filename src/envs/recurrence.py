@@ -65,6 +65,7 @@ class RecurrenceEnvironment(object):
         self.output_words = self.output_words + SPECIAL_WORDS
         
         if params.use_sympy and not params.output_numeric: self.simplifier = simplifiers.Simplifier(self.output_encoder, self.generator)
+        else: self.simplifier = None
     
         # number of words / indices
         self.input_id2word = {i: s for i, s in enumerate(self.input_words)}
@@ -138,9 +139,9 @@ class RecurrenceEnvironment(object):
         tree, series, predictions, n_input_points = self.generator.generate(rng=self.rng, nb_ops=nb_ops, prediction_points=True,length=length)
         if tree is None:
             return None, None, None, None
-        # print('before',tree)
-        if self.params.use_sympy: tree = self.simplifier.simplify_tree(tree)
-        # print('after',tree)
+        n_ops = tree.get_n_ops()
+        n_recurrence_degree = max(tree.get_recurrence_degrees())
+        if self.simplifier is not None: tree = self.simplifier.simplify_tree(tree)
         
         ##compute predictions even in symbolic case
         
@@ -179,8 +180,6 @@ class RecurrenceEnvironment(object):
             indexes_to_remove = [0]
 
         x, y = [], []
-        n_ops = tree.get_n_ops()
-        n_recurrence_degree = max(tree.get_recurrence_degrees())
         info = {"n_input_points":[], "n_ops": [], "n_recurrence_degree": []}
         for idx in indexes_to_remove:
             #if self.params.output_numeric:

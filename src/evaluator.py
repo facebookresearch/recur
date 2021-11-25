@@ -97,7 +97,7 @@ class Evaluator(object):
         Encoding / decoding step with beam generation 
         """
 
-        n_infos_prior = 50
+        n_infos_prior = 100
         params = self.params
 
         max_beam_length = self.params.max_output_len
@@ -412,7 +412,7 @@ class Evaluator(object):
         """
         from scipy.interpolate import lagrange,pade
 
-        n_infos_prior = 50
+        n_infos_prior = 100
         params = self.params
 
 
