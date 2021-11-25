@@ -255,7 +255,7 @@ class RecurrenceEnvironment(object):
         )
         return DataLoader(
             dataset,
-            timeout=(0 if params.num_workers == 0 else 1800),
+            timeout=(0 if params.num_workers == 0 else 5000),
             batch_size=params.batch_size,
             num_workers=(
                 params.num_workers
@@ -601,7 +601,7 @@ class EnvDataset(Dataset):
                         continue # discard problematic series
                     break
                 except Exception as e:
-                    if True: logger.error(
+                    if False: logger.error(
                         'An unknown exception of type {0} occurred for worker {4} in line {1} for expression "{2}". Arguments:{3!r}.'.format(
                             type(e).__name__,
                             sys.exc_info()[-1].tb_lineno,

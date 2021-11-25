@@ -1,5 +1,6 @@
 import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr
+from wrapt_timeout_decorator import timeout
 
 class Simplifier():
     
@@ -11,6 +12,7 @@ class Simplifier():
         self.max_int = generator.max_int
         self.local_dict = {k: sp.Symbol(k, real=True, nonzero=True) for k in (generator.variables+generator.math_constants)}
 
+    # @timeout(10)
     def simplify_tree(self, tree):
         prefix = tree.prefix().split(',')
         simplified_prefix = self.simplify_prefix(prefix)
