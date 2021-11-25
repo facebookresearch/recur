@@ -60,9 +60,9 @@ class RecurrenceEnvironment(object):
             self.output_encoder = encoders.FloatSequences(params) if self.params.float_sequences else encoders.IntegerSequences(params)
             self.output_words = sorted(list(set(self.output_encoder.symbols)))
         else:
-            self.output_encoder = encoders.Equation(params)
+            self.output_encoder = encoders.Equation(params, self.generator.symbols)
             self.output_words = sorted(list(set(self.generator.symbols)))
-        self.output_words = self.output_words + SPECIAL_WORDS + ['pow', '0']
+        self.output_words = self.output_words + SPECIAL_WORDS
         
         if params.use_sympy and not params.output_numeric: self.simplifier = simplifiers.Simplifier(self.output_encoder, self.generator)
     
@@ -601,7 +601,7 @@ class EnvDataset(Dataset):
                         continue # discard problematic series
                     break
                 except Exception as e:
-                    if False: logger.error(
+                    if True: logger.error(
                         'An unknown exception of type {0} occurred for worker {4} in line {1} for expression "{2}". Arguments:{3!r}.'.format(
                             type(e).__name__,
                             sys.exc_info()[-1].tb_lineno,

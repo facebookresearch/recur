@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument("--timeout", default=4000, type=int, help="Duration of the job")
     parser.add_argument("--job_dir", default="", type=str, help="Job dir. Leave empty for automatic.")
 
-    parser.add_argument("--partition", default="learnlab", type=str, help="Partition where to submit")
+    parser.add_argument("--partition", default="devlab,learnlab", type=str, help="Partition where to submit")
     parser.add_argument("--use_volta32", action='store_true', help="Big models? Use this")
     parser.add_argument('--comment', default="nature", type=str,
                         help='Comment to pass to scheduler, e.g. priority message')

@@ -276,7 +276,7 @@ class RandomRecurrence(Generator):
         if params.float_sequences:
             self.constants += math_constants
         self.variables = ['n', 'rand'] + [f'x_{i}_{j}' for i in range(self.dimension) for j in range(self.max_degree+1)]
-        self.symbols = list(self.operators) + self.constants + self.variables + ['|', 'INT+', 'INT-']
+        self.symbols = list(self.operators) + self.constants + self.variables + ['|', 'INT+', 'INT-', 'pow', '0'] 
         self.math_constants = math_constants
         self.extra_constants = self.params.extra_constants.split(",")
         self.float_constants = self.params.float_constants

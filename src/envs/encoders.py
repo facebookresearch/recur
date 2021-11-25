@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 import math
-from .generators import all_operators, Node, NodeList
+from .generators import all_operators, math_constants, Node, NodeList
 
 class Encoder(ABC):
     """
@@ -133,10 +133,11 @@ class FloatSequences(Encoder):
         return seq
     
 class Equation(Encoder):
-    def __init__(self, params):
+    def __init__(self, params, symbols):
         super().__init__(params)
         self.params = params
         self.max_int = self.params.max_int
+        self.symbols = symbols
         if params.extra_unary_operators!="":
             self.extra_unary_operators=self.params.extra_unary_operators.split(",")
         else:
@@ -162,11 +163,11 @@ class Equation(Encoder):
     def _decode(self, lst):
         if len(lst)==0:
             return None, 0
-        elif lst[0]=='SPECIAL':
+        if (lst[0] not in self.symbols) and (not lst[0].lstrip('-').isdigit()):
             return None, 0
-        elif "OOD" in lst[0]:
+        if "OOD" in lst[0]:
             return None, 0
-        elif lst[0] in all_operators.keys():
+        if lst[0] in all_operators.keys():
             res = Node(lst[0], self.params)
             arity = all_operators[lst[0]]
             pos = 1
@@ -180,8 +181,9 @@ class Equation(Encoder):
         elif lst[0].startswith('INT'):
             val, length = self.parse_int(lst)
             return Node(val, self.params), length
-        else:
-            return Node(lst[0], self.params), 1        
+        else: # other leafs
+            return Node(lst[0], self.params), 1
+
     
     def decode(self, lst):
         trees = []
@@ -209,7 +211,7 @@ class Equation(Encoder):
         val = 0
         i = 0
         for x in lst[1:]:
-            if not (x.isdigit() or x[0] == '-' and x[1:].isdigit()):
+            if not (x.rstrip('-').isdigit()):
                 break
             val = val * base + int(x)
             i += 1
