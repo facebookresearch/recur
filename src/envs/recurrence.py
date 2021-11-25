@@ -77,8 +77,9 @@ class RecurrenceEnvironment(object):
             self.output_word2id[ood_unary_op]=self.output_word2id["OOD_unary_op"]
         for ood_binary_op in self.generator.extra_binary_operators:
             self.output_word2id[ood_binary_op]=self.output_word2id["OOD_binary_op"]
-        for c in self.generator.extra_constants:
-            self.output_word2id[c]=self.output_word2id["OOD_constant"]
+        if self.generator.extra_constants is not None:
+            for c in self.generator.extra_constants:
+                self.output_word2id[c]=self.output_word2id["OOD_constant"]
         
         if self.params.float_constants:
             assert self.params.float_sequences, "Constants cannot be float when we consider integer series"
@@ -323,7 +324,7 @@ class RecurrenceEnvironment(object):
                             help="Extra binary operator to add to data generation")    
         parser.add_argument("--float_constants", type=float, default=None,
                             help="Use float constants instead of ints") 
-        parser.add_argument("--extra_constants", type=str, default="",
+        parser.add_argument("--extra_constants", type=str, default=None,
                             help="Additional int constants floats instead of ints") 
 
 

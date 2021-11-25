@@ -278,7 +278,10 @@ class RandomRecurrence(Generator):
         self.variables = ['n', 'rand'] + [f'x_{i}_{j}' for i in range(self.dimension) for j in range(self.max_degree+1)]
         self.symbols = list(self.operators) + self.constants + self.variables + ['|', 'INT+', 'INT-', 'pow', '0'] 
         self.math_constants = math_constants
-        self.extra_constants = self.params.extra_constants.split(",")
+        if self.params.extra_constants is not None:
+            self.extra_constants = self.params.extra_constants.split(",")
+        else:
+            self.extra_constants = []
         self.float_constants = self.params.float_constants
         
     def generate_dist(self, max_ops):
