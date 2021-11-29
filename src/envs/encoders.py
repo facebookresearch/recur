@@ -78,8 +78,9 @@ class FloatSequences(Encoder):
     def __init__(self, params):
         super().__init__(params)
         self.float_precision = params.float_precision
+        self.mantissa_len = params.mantissa_len
         self.max_exponent = params.max_exponent
-        self.max_token = 10 ** (self.float_precision + 1)
+        self.max_token = 10 ** ((self.float_precision+1)//self.mantissa_len)
         self.symbols = ['+','-']
         self.symbols.extend(['N' + str(i) for i in range(self.max_token)])
         self.symbols.extend(['E' + str(i) for i in range(-self.max_exponent, self.max_exponent+1)])
@@ -96,13 +97,14 @@ class FloatSequences(Encoder):
             m, e = (f"%.{precision}e" % val).split("e")
             i, f = m.split(".")
             i = i + f
-            ipart = abs(int(i))
+            tokens = self.chunks(i, (precision+1)//self.mantissa_len)
+            iparts = [abs(int(token)) for token in tokens]
             expon = int(e) - precision
             if expon < -self.max_exponent:
-                ipart = 0
-            if ipart == 0:
-                expon = 0
-            seq.extend([sign, 'N' + str(ipart), "E" + str(expon)])
+                iparts = np.zeros(len(iparts)).astype(int)
+            if sum(iparts)==0:
+                expon = int(0)
+            seq.extend([sign, *['N' + str(ipart) for ipart in iparts], "E" + str(expon)])
         return seq
     
     def chunks(self, lst, n):
@@ -118,13 +120,16 @@ class FloatSequences(Encoder):
         if len(lst)==0:
             return None
         seq = []
-        for val in self.chunks(lst, 3):
+        for val in self.chunks(lst, 2+self.mantissa_len):
             for x in val: 
                 if x[0] not in ['-','+','E','N']: return np.nan
             try:
                 sign = 1 if val[0]=='+' else -1
-                mant = int(val[1][1:])
-                exp = int(val[2][1:])
+                mant = ''
+                for x in val[1:-1]:
+                    mant += x[1:]
+                mant = int(mant)
+                exp = int(val[-1][1:])
                 value = sign * mant * (10 ** exp)
                 value=float(value)
             except Exception:

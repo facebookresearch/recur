@@ -333,6 +333,8 @@ class RecurrenceEnvironment(object):
                             help="Number of variables")
         parser.add_argument("--float_precision", type=int, default=3,
                             help="Number of digits in the mantissa")
+        parser.add_argument("--mantissa_len", type=int, default=1,
+                            help="Number of tokens for the mantissa (must be a divisor or float_precision+1)")
         parser.add_argument("--max_exponent", type=int, default=100,
                             help="Maximal order of magnitude")
         parser.add_argument("--int_base", type=int, default=10000,
