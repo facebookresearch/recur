@@ -13,7 +13,19 @@ class Simplifier():
         self.params = generator.params
         self.operators = generator.operators
         self.max_int = generator.max_int
-        self.local_dict = {k: sp.Symbol(k, real=True, nonzero=True) for k in (generator.variables+generator.math_constants)}
+        self.local_dict = {
+            'n': sp.Symbol('n', real=True, nonzero=True, positive=True, integer=True),
+            'e': sp.E,
+            'pi': sp.pi,
+            'euler_gamma': sp.EulerGamma,
+            'arcsin': sp.asin,
+            'arccos': sp.acos,
+            'arctan': sp.atan,
+            'step': sp.Heaviside,
+            'sign': sp.sign,
+        }
+        for k in (generator.variables):
+            self.local_dict[k] =  sp.Symbol(k, real=True, integer=not self.params.float_sequences) 
 
     def simplify_tree(self, tree):
         prefix = tree.prefix().split(',')
@@ -23,7 +35,8 @@ class Simplifier():
     
     def simplify_prefix(self, prefix):
         infix = self.prefix_to_infix(prefix)
-        return self.sympy_to_prefix(self.infix_to_sympy(infix, simplify = self.params.simplify))
+        sympy_infix = self.infix_to_sympy(infix, simplify = self.params.simplify)
+        return self.sympy_to_prefix(sympy_infix)
     
     def get_simple_infix(self, tree):
         infix = self.prefix_to_infix(tree.prefix().split(','))
@@ -32,7 +45,6 @@ class Simplifier():
     def write_infix(self, token, args):
         """
         Infix representation.
-        Convert prefix expressions to a format that SymPy can parse.
         """
         if token == 'add':
             return f'({args[0]})+({args[1]})'
@@ -81,7 +93,7 @@ class Simplifier():
 
     def prefix_to_infix(self, expr):
         """
-        Prefix to infix conversion.
+        Convert prefix expressions to a format that SymPy can parse.        
         """
         p, r = self._prefix_to_infix(expr)
         if len(r) > 0:
@@ -135,6 +147,8 @@ class Simplifier():
             return [str(expr)]
         elif isinstance(expr, sp.Rational):
             return ['mul',str(expr.p),'pow',str(expr.q),'-1']
+        elif expr == sp.EulerGamma:
+            return ['euler_gamma']
         elif expr == sp.E:
             return ['e']
         elif expr == sp.pi:
@@ -165,9 +179,11 @@ class Simplifier():
         sp.Add: 'add',
         sp.Mul: 'mul',
         sp.Mod: 'mod',
-        sp.Abs: 'abs',
         sp.Pow: 'pow',
+        # Misc
+        sp.Abs: 'abs',
         sp.sign: 'sign',
+        sp.Heaviside: 'step',
         # Exp functions
         sp.exp: 'exp',
         sp.log: 'log',
@@ -176,7 +192,7 @@ class Simplifier():
         sp.cos: 'cos',
         sp.tan: 'tan',
         # Trigonometric Inverses
-        sp.asin: 'asin',
-        sp.acos: 'acos',
-        sp.atan: 'atan',
+        sp.asin: 'arcsin',
+        sp.acos: 'arccos',
+        sp.atan: 'arctan',
     }

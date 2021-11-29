@@ -86,7 +86,7 @@ def main():
     shared_folder = get_shared_folder()
 
     grid = {
-        "float_sequences": [True],
+        "float_sequences": [True,False],
         "output_numeric":  [True,False],
         "batch_size": [32],
         "optimizer":["adam_inverse_sqrt,lr=0.0001"],
