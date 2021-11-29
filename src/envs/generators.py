@@ -111,7 +111,6 @@ class Node():
             elif str(self.value) in math_constants:
                 return getattr(np, str(self.value))
             else:
-                #print(type(self.value))
                 return eval(self.value)
                
     
@@ -316,7 +315,7 @@ class RandomRecurrence(Generator):
                 if  self.float_constants is not None:
                     return str(rng.uniform(low=-self.float_constants, high=self.float_constants))
                 else:
-	                return rng.choice(self.constants + self.extra_constants)
+                    return str(rng.choice(self.constants + self.extra_constants))
                 
             elif draw > self.prob_const and draw < self.prob_const + self.prob_n:
                 return 'n'

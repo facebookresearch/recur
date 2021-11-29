@@ -86,10 +86,12 @@ def main():
     shared_folder = get_shared_folder()
 
     grid = {
-        "float_sequences": [True, False],
-        "output_numeric":  [True, False],
+        "float_sequences": [False],
+        "output_numeric":  [False],
         "batch_size": [32],
         "optimizer":["adam_inverse_sqrt,lr=0.0001"],
+        # "prob_rand": [0.05,0.1]
+        # "curriculum_n_ops": [True]
     }
 
     def dict_product(d):

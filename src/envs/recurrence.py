@@ -24,7 +24,7 @@ import torch
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 import collections
-from ..utils import bool_flag
+from ..utils import bool_flag, timeout, MyTimeoutError
 
 SPECIAL_WORDS = ["EOS", "PAD", "(", ")", "SPECIAL", "OOD_unary_op", "OOD_binary_op", "OOD_constant"]
 logger = getLogger()
@@ -134,6 +134,7 @@ class RecurrenceEnvironment(object):
         else:
             return m.infix()
 
+    @timeout(3)
     def gen_expr(self, train, input_length_modulo=-1, nb_ops=None):
         
         length=self.params.max_len if input_length_modulo!=-1 and not train else None
@@ -255,7 +256,7 @@ class RecurrenceEnvironment(object):
         )
         return DataLoader(
             dataset,
-            timeout=(0 if params.num_workers == 0 else 5000),
+            timeout=0 if params.num_workers == 0 else 1800,
             batch_size=params.batch_size,
             num_workers=(
                 params.num_workers
@@ -600,7 +601,7 @@ class EnvDataset(Dataset):
                     if self._x is None or self._y is None:
                         continue # discard problematic series
                     break
-                except Exception as e:
+                except (Exception,MyTimeoutError) as e:
                     if False: logger.error(
                         'An unknown exception of type {0} occurred for worker {4} in line {1} for expression "{2}". Arguments:{3!r}.'.format(
                             type(e).__name__,

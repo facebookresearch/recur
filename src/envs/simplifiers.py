@@ -1,6 +1,9 @@
 import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr
-from wrapt_timeout_decorator import timeout
+from .generators import all_operators, math_constants, Node, NodeList
+
+class InvalidPrefixExpression(BaseException):
+    pass
 
 class Simplifier():
     
@@ -12,7 +15,6 @@ class Simplifier():
         self.max_int = generator.max_int
         self.local_dict = {k: sp.Symbol(k, real=True, nonzero=True) for k in (generator.variables+generator.math_constants)}
 
-    # @timeout(10)
     def simplify_tree(self, tree):
         prefix = tree.prefix().split(',')
         simplified_prefix = self.simplify_prefix(prefix)
@@ -40,6 +42,8 @@ class Simplifier():
             return f'({args[0]})*({args[1]})'
         elif token == 'div':
             return f'({args[0]})/({args[1]})'
+        if token == 'pow':
+            return f'({args[0]})**({args[1]})'
         elif token == 'idiv':
             return f'idiv({args[0]},{args[1]})'
         elif token == 'mod':
@@ -50,7 +54,7 @@ class Simplifier():
             return f'1/({args[0]})'
         elif token == 'sqr':
             return f'({args[0]})**2'
-        elif token in self.operators:
+        elif token in all_operators:
             return f'{token}({args[0]})'
         else:
             return token
@@ -65,10 +69,10 @@ class Simplifier():
         if len(expr) == 0:
             raise InvalidPrefixExpression("Empty prefix list.")
         t = expr[0]
-        if t in self.operators:
+        if t in all_operators:
             args = []
             l1 = expr[1:]
-            for _ in range(self.operators[t]):
+            for _ in range(all_operators[t]):
                 i1, l1 = self._prefix_to_infix(l1)
                 args.append(i1)
             return self.write_infix(t, args), l1

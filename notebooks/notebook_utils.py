@@ -16,6 +16,16 @@ import math
 import scipy.special
 import warnings
 from sklearn.manifold import TSNE
+from IPython.display import display
+from importlib import reload  # Python 3.4+
+import importlib.util
+
+def module_from_file(module_name, file_path):
+    print(file_path, module_name)
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 def import_file(full_path_to_module):
     module_dir, module_file = os.path.split(full_path_to_module)
@@ -26,15 +36,8 @@ def import_file(full_path_to_module):
     module_obj.__file__ = full_path_to_module
     globals()[module_name] = module_obj
     os.chdir(save_cwd)
+    print(module_name, module_obj.__file__, 'hi')
     return module_obj
-
-path = '/private/home/sdascoli/recur/src'
-src = import_file(path)
-from src.model import build_modules
-from src.envs import ENVS, build_env
-from src.trainer import Trainer
-from src.evaluator import Evaluator, idx_to_infix
-from src.envs.generators import RandomRecurrence
 
 ############################ GENERAL ############################
 
@@ -114,6 +117,20 @@ def sympy_infix(tree):
 
 def load_run(run, new_args=None):
     
+    #try: del src
+    #except: pass
+    #path = '/private/home/sdascoli/recur/src'
+        
+    path = run['args'].dump_path+'/src'
+    src = import_file(path)
+
+    print(src)
+    from src.model import build_modules
+    from src.envs import ENVS, build_env
+    from src.trainer import Trainer
+    from src.evaluator import Evaluator, idx_to_infix
+    from src.envs.generators import RandomRecurrence
+    
     if new_args is None: new_args = copy.deepcopy(run['args'])
     new_args.multi_gpu = False
     new_args.tasks = 'recurrence'
@@ -132,7 +149,7 @@ def eval_run(run, new_args=None):
     return scores
 
       
-def predict(args, env, modules, series=None, pred_len=None, beam_size=None, beam_length_penalty=None, verbose=False, gen_kwargs={}):
+def predict(args, env, modules, series=None, pred_len=None, beam_size=None, beam_length_penalty=None, verbose=False, rec_only=False, nonrec_only=False, gen_kwargs={}):
     
     encoder, decoder = modules["encoder"], modules["decoder"]
     
@@ -168,8 +185,13 @@ def predict(args, env, modules, series=None, pred_len=None, beam_size=None, beam
     if verbose:
         for h, hyp in scores[0].hyp:
             tokens = [env.output_id2word[wid] for wid in hyp.tolist()[1:]]
+            if nonrec_only:
+                if any([token.startswith('x_') for token in tokens]): continue
+            if rec_only:
+                if not any([token.startswith('x_') for token in tokens]): continue
             pred = env.output_encoder.decode(tokens)
-            print(readable_infix(pred))
+            try:display(env.simplifier.get_simple_infix(pred))
+            except:print(pred)
         
     gen = gen.cpu().numpy()[1:-1,0]
     tokens = [env.output_id2word[wid] for wid in gen]
@@ -178,7 +200,7 @@ def predict(args, env, modules, series=None, pred_len=None, beam_size=None, beam
     
     if args.output_numeric:
         series.extend(pred[1:])
-    
+            
     pred_series = copy.deepcopy(series)
     if pred_len is None: pred_len = len(series)//args.dimension
     for i in range(pred_len):
@@ -229,7 +251,24 @@ def predict_batch(args, env, modules, batch, pred_len=3):
 ############################ OPERATOR FAMILIES ############################
 
 ### In-domain ###
-from src.envs.generators import operators_real
+operators_real = {
+    'add': 2,
+    'sub': 2,
+    'mul': 2,
+    'div': 2,
+    'abs'    :1,
+    'inv'    :1,
+    'sqr'    :1,
+    'sqrt'   :1,
+    'log'    :1,
+    'exp'    :1,
+    'sin'    :1,
+    'arcsin' :1,
+    'cos'    :1,
+    'arccos' :1,
+    'tan'    :1,
+    'arctan' :1,
+}
 all_ops = list(operators_real.keys())
 
 id_groups = {

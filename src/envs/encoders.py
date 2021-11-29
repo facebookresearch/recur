@@ -180,7 +180,7 @@ class Equation(Encoder):
             return res, pos
         elif lst[0].startswith('INT'):
             val, length = self.parse_int(lst)
-            return Node(val, self.params), length
+            return Node(str(val), self.params), length
         else: # other leafs
             return Node(lst[0], self.params), 1
 

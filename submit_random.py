@@ -21,7 +21,7 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "final/random"
+FOLDER_NAME = "paper/random"
 
 def parse_args():
     classification_parser = classification.get_parser()
@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument("--timeout", default=4000, type=int, help="Duration of the job")
     parser.add_argument("--job_dir", default="", type=str, help="Job dir. Leave empty for automatic.")
 
-    parser.add_argument("--partition", default="learnlab", type=str, help="Partition where to submit")
+    parser.add_argument("--partition", default="devlab,learnlab", type=str, help="Partition where to submit")
     parser.add_argument("--use_volta32", action='store_true', help="Big models? Use this")
     parser.add_argument('--comment', default="nature", type=str,
                         help='Comment to pass to scheduler, e.g. priority message')
@@ -41,8 +41,8 @@ def parse_args():
 def get_shared_folder() -> Path:
     user = os.getenv("USER")
     if Path("/checkpoint/").is_dir():
-        p = Path(f"/checkpoint/sdascoli/recur")
-        # p = p / str(int(time.time()))
+        p = Path(f"/checkpoint/{user}/recur")
+        p.mkdir(exist_ok=True)
         p = p / FOLDER_NAME
         p.mkdir(exist_ok=True)
         return p
@@ -87,11 +87,11 @@ def main():
 
     grid = {
         "float_sequences": [True],
-        "output_numeric": [True, False],
-        "dimension": [1],
-        "prob_rand": [0.1],
+        "output_numeric":  [True,False],
         "batch_size": [32],
         "optimizer":["adam_inverse_sqrt,lr=0.0001"],
+        "prob_rand": [0.1]
+        # "curriculum_n_ops": [True]
     }
 
     def dict_product(d):
@@ -107,7 +107,7 @@ def main():
         args.enc_emb_dim = 1024
         args.dec_emb_dim = 1024
         args.use_volta32 = True
-        args.max_token_len=200
+        args.max_token_len= 200
         
         name = '_'.join(['{}_{}'.format(k,v) for k,v in params.items()])
         args.job_dir = shared_folder / name
@@ -132,14 +132,13 @@ def main():
         if args.comment:
             kwargs['slurm_comment'] = args.comment
         executor.update_parameters(
-            mem_gb=480,
+            mem_gb=320,
             gpus_per_node=args.ngpus,
             tasks_per_node=args.ngpus,
             cpus_per_task=10,
             nodes=args.nodes,
             timeout_min=args.timeout,  # max is 60 * 72
             slurm_partition=args.partition,
-            slurm_signal_delay_s=120,
             **kwargs
         )
 
