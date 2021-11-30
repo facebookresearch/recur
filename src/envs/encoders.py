@@ -80,9 +80,10 @@ class FloatSequences(Encoder):
         self.float_precision = params.float_precision
         self.mantissa_len = params.mantissa_len
         self.max_exponent = params.max_exponent
-        self.max_token = 10 ** ((self.float_precision+1)//self.mantissa_len)
+        self.base = (self.float_precision+1)//self.mantissa_len
+        self.max_token = 10 ** self.base
         self.symbols = ['+','-']
-        self.symbols.extend(['N' + str(i) for i in range(self.max_token)])
+        self.symbols.extend(['N' + f"%0{self.base}d" % i for i in range(self.max_token)])
         self.symbols.extend(['E' + str(i) for i in range(-self.max_exponent, self.max_exponent+1)])
 
     def encode(self, value):
@@ -90,21 +91,19 @@ class FloatSequences(Encoder):
         Write a float number
         """
         seq = []
+        precision = self.float_precision
         for val in value:
-            precision = self.float_precision
             assert val not in [-np.inf, np.inf]
             sign = '+' if val>=0 else '-'
             m, e = (f"%.{precision}e" % val).split("e")
-            i, f = m.split(".")
+            i, f = m.lstrip("-").split(".")
             i = i + f
             tokens = self.chunks(i, (precision+1)//self.mantissa_len)
-            iparts = [abs(int(token)) for token in tokens]
             expon = int(e) - precision
             if expon < -self.max_exponent:
-                iparts = np.zeros(len(iparts)).astype(int)
-            if sum(iparts)==0:
+                tokens = ['0'*self.base]*self.mantissa_len
                 expon = int(0)
-            seq.extend([sign, *['N' + str(ipart) for ipart in iparts], "E" + str(expon)])
+            seq.extend([sign, *['N' + token for token in tokens], "E" + str(expon)])
         return seq
     
     def chunks(self, lst, n):

@@ -149,27 +149,27 @@ def eval_run(run, new_args=None):
     return scores
 
       
-def predict(args, env, modules, series=None, pred_len=None, beam_size=None, beam_length_penalty=None, verbose=False, rec_only=False, nonrec_only=False, gen_kwargs={}):
+def predict(args, env, modules, seq=None, pred_len=None, beam_size=None, beam_length_penalty=None, verbose=False, rec_only=False, nonrec_only=False, gen_kwargs={}):
     
     encoder, decoder = modules["encoder"], modules["decoder"]
     
     if beam_length_penalty is None: beam_length_penalty = args.beam_length_penalty
     if beam_size is None: beam_size = args.beam_size
         
-    if series is None:
+    if seq is None:
         generator = env.generator
         rng = np.random.RandomState(0)
         rng.seed()
         while True:
-            tree, series, _, _ = generator.generate(rng, **gen_kwargs)
-            if series is None: continue
-            if np.isnan(np.sum(series)): continue
+            tree, seq, _, _ = generator.generate(rng, **gen_kwargs)
+            if seq is None: continue
+            if np.isnan(np.sum(seq)): continue
             break
     else:
         tree = None
     
-    x = [env.input_encoder.encode(series)]
-    x = [torch.LongTensor([env.input_word2id[w] for w in seq]) for seq in x]
+    x = [env.input_encoder.encode(seq)]
+    x = [torch.LongTensor([env.input_word2id[w] for w in s]) for s in x]
     x, x_len = env.batch_sequences(x)
     x, x_len = x.cuda(), x_len.cuda()
     encoded = encoder("fwd", x=x, lengths=x_len, causal=False)
@@ -182,32 +182,42 @@ def predict(args, env, modules, series=None, pred_len=None, beam_size=None, beam
                     max_len=args.max_len
     )
     score = scores[0].hyp[0][0]
-    if verbose:
-        for h, hyp in scores[0].hyp:
-            tokens = [env.output_id2word[wid] for wid in hyp.tolist()[1:]]
-            if nonrec_only:
-                if any([token.startswith('x_') for token in tokens]): continue
-            if rec_only:
-                if not any([token.startswith('x_') for token in tokens]): continue
-            pred = env.output_encoder.decode(tokens)
-            try:display(env.simplifier.get_simple_infix(pred))
-            except:print(pred)
+    
+    pred_trees, pred_seqs = [], []
+    
+    for h, hyp in scores[0].hyp:
+        tokens = [env.output_id2word[wid] for wid in hyp.tolist()[1:]]
+        if nonrec_only:
+            if any([token.startswith('x_') for token in tokens]): continue
+        if rec_only:
+            if not any([token.startswith('x_') for token in tokens]): continue
+        pred_tree = env.output_encoder.decode(tokens)
+        if pred_tree is None: continue
+        degs = pred_tree.get_recurrence_degrees()
+        if verbose:
+            try:display(env.simplifier.get_simple_infix(pred_tree))
+            except:print(pred_tree)
         
-    gen = gen.cpu().numpy()[1:-1,0]
-    tokens = [env.output_id2word[wid] for wid in gen]
-    #pred_tree = env.output_encoder.decode(prefix)[0]
-    pred = env.output_encoder.decode(tokens)
-    
-    if args.output_numeric:
-        series.extend(pred[1:])
+    #gen = gen.cpu().numpy()[1:-1,0]
+    #tokens = [env.output_id2word[wid] for wid in gen]
+    ##pred_tree = env.output_encoder.decode(prefix)[0]
+    #pred = env.output_encoder.decode(tokens)
+    #
+        if args.output_numeric:
+            seq.extend(pred[1:])
             
-    pred_series = copy.deepcopy(series)
-    if pred_len is None: pred_len = len(series)//args.dimension
-    for i in range(pred_len):
-        if tree: series.extend(tree.val(series))
-        if not args.output_numeric: pred_series.extend(pred.val(pred_series))
+        pred_seq = copy.deepcopy(seq)[:max(degs)*args.dimension]
+        while len(pred_seq)<len(seq):
+            if not args.output_numeric: pred_seq.extend(pred_tree.val(pred_seq))
+        if pred_len is None: pred_len = len(seq)//args.dimension
+        for i in range(pred_len):
+            if tree: seq.extend(tree.val(seq))
+            if not args.output_numeric: pred_seq.extend(pred_tree.val(pred_seq))
+                
+        pred_trees.append(pred_tree)
+        pred_seqs.append(pred_seq)
     
-    return tree, pred, series, pred_series, score
+    return tree, pred_trees, seq, pred_seqs, score
 
 def predict_batch(args, env, modules, batch, pred_len=3):
     
