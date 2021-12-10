@@ -147,20 +147,17 @@ class RecurrenceEnvironment(object):
         
         ##compute predictions even in symbolic case
         
-        if not train:
-            ##TODO: add noise to predictions
-            if self.params.eval_noise:
-                noise = self.params.eval_noise
-                if self.params.float_sequences:
-                    noise = self.params.eval_noise * np.random.randn(len(series))
-                else:
-                    noise = np.random.randint(size=(len(series),), low=-self.params.eval_noise, high=self.params.eval_noise+1).astype(int)
-                if self.params.eval_noise_type=="additive":
-                    series = (np.array(series)+noise).tolist()
-                elif self.params.eval_noise_type=="multiplicative":
-                    series = (np.array(series)*(1+noise)).tolist()
-                else:
-                    raise NotImplementedError
+        if (train and self.params.train_noise) or (not train and self.params.eval_noise):
+            noise_max_std = self.params.train_noise if train else self.params.eval_noise
+            noise_std = np.random.uniform(0, noise_max_std) if train else noise_max_std
+            noise = noise_std * np.random.randn(len(series))
+            series = (np.array(series)*(1+noise)).tolist()
+            if not self.params.float_sequences:
+                series = [round(x) for x in series]
+
+        if (not train) and self.params.prob_rand > 0:
+            if tree.prefix().count('rand')!=1:
+                return None, None, None, None
 
         ending = np.array(series[-5:])
         gaps = abs(ending[1:]-ending[:-1])

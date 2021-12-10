@@ -17,8 +17,10 @@ def read_url(address):
             text = str(uf.read())
     return text
 
-def check_patterns(identifier, patterns=[], exclude=[]):
+def check_patterns(identifier, patterns=[], exclude=["prime"]):
     text = read_url("https://oeis.org/"+identifier)
+    title = text[:text.find('OFFSET')]
+    
     length = len(text)
     
     good = []
@@ -26,18 +28,20 @@ def check_patterns(identifier, patterns=[], exclude=[]):
     for pattern in patterns:
         good.append(pattern in text)
     for pattern in exclude:
-        bad.append(pattern in text)
+        bad.append(pattern in title)
     valid = all(good) and not any(bad)
 
     return valid, length
 
-def clean_oeis(n_seqs = -1, path="/private/home/sdascoli/recur/", dataset_type='easy2', exclude=[]):
-    if dataset_type.startswith('easy'):
-        patterns=["easy to produce"]
+def clean_oeis(n_seqs = -1, path="/private/home/sdascoli/recur/", dataset_type='very_easy', exclude=[]):
+    if "easy" in dataset_type:
+        patterns=["easy to produce", "FORMULA", "G.f.", "a(n)"]
     elif dataset_type=='nice':
         patterns=["exceptionally nice"]
     else:
         raise NotImplementedError
+
+    
     n_kept, n_rejected = 0, 0
     lines = []
     with open(path+"OEIS.txt", 'r') as f:
@@ -49,7 +53,7 @@ def clean_oeis(n_seqs = -1, path="/private/home/sdascoli/recur/", dataset_type='
                 if n_kept==n_seqs: break
                 identifier = line[:8]
                 valid, length = check_patterns(identifier, patterns)
-                if len(line.split(','))<40 or not valid: 
+                if len(line.split(','))<=41 or not valid: 
                     n_rejected += 1
                     continue
                 w.write(line)
@@ -79,4 +83,4 @@ def load_oeis(length = 40, path = "/private/home/sdascoli/recur/OEIS_clean.txt")
     return lines, ids
 
 if __name__=='__main__':
-    clean_oeis(100000)
+    clean_oeis(10000)

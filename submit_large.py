@@ -86,13 +86,13 @@ def main():
     shared_folder = get_shared_folder()
 
     grid = {
-        "float_sequences": [True,False],
+        "float_sequences": [True],
         "output_numeric":  [True,False],
         "batch_size": [32],
-        "optimizer":["adam_inverse_sqrt,lr=0.0001"],
         "mantissa_len":[3],
-        "float_precision":[11]
-        # "prob_rand": [0.05,0.1]
+        "float_precision":[11],
+        "use_sympy":[False],
+        "train_noise": [0.1,0.5],
         # "curriculum_n_ops": [True]
     }
 
@@ -104,6 +104,7 @@ def main():
     for params in dict_product(grid):
 
         args.master_port = np.random.randint(10001, 20000)
+        args.optimizer = "adam_inverse_sqrt,lr=0.0001"
         args.n_enc_layers = 8
         args.n_dec_layers = 8
         args.enc_emb_dim = 1024

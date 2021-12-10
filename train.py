@@ -150,10 +150,10 @@ def get_parser():
     # evaluation
     parser.add_argument("--eval_size", type=int, default=10000,
                         help="Size of valid and test samples")
-    parser.add_argument("--eval_noise_type", type=str, default="additive", choices=["additive","multiplicative"],
-                        help="Type of noise added at test time")
+    parser.add_argument("--train_noise", type=float, default=0,
+                        help="Amount of noise at train time")
     parser.add_argument("--eval_noise", type=float, default=0,
-                        help="Size of valid and test samples")
+                        help="Amount of noise at test time")
     parser.add_argument("--eval_only", type=bool_flag, default=False,
                         help="Only run evaluations")
     parser.add_argument("--eval_from_exp", type=str, default="",
