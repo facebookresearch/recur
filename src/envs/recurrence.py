@@ -12,6 +12,7 @@ import io
 import sys
 import copy
 import json
+from typing import Optional, List, Dict
 
 # import math
 import numpy as np
@@ -29,6 +30,9 @@ from ..utils import bool_flag, timeout, MyTimeoutError
 SPECIAL_WORDS = ["EOS", "PAD", "(", ")", "SPECIAL", "OOD_unary_op", "OOD_binary_op", "OOD_constant"]
 logger = getLogger()
 
+COLLATE_QUEUE_SIZE = 10000
+SKIP_ITEM = "SKIP_ITEM"
+
 
 class InvalidPrefixExpression(Exception):
     def __init__(self, data):
@@ -38,12 +42,22 @@ class InvalidPrefixExpression(Exception):
         return repr(self.data)
 
 
+class ZMQNotReady(Exception):
+    pass
+
+
+class ZMQNotReadySample:
+    pass
+
 class RecurrenceEnvironment(object):
 
     TRAINING_TASKS = {"recurrence"}
 
     def __init__(self, params):
         self.params = params
+        self.max_size = None
+        self.mantissa_len = params.mantissa_len
+
         self.float_tolerance = params.float_tolerance
         self.additional_tolerance = [
             float(x) for x in params.more_tolerance.split(",") if len(x) > 0
@@ -251,6 +265,12 @@ class RecurrenceEnvironment(object):
             path=(None if data_path is None else data_path[task][0]),
             **args
         )
+
+        collate_fn = dataset.collate_reduce_padding(
+            dataset.collate_fn,
+            key_fn=lambda x: len(x[0]), #["n_input_points"],
+            max_size=self.max_size,
+        )
         return DataLoader(
             dataset,
             timeout=0 if params.num_workers == 0 else 1800,
@@ -261,7 +281,7 @@ class RecurrenceEnvironment(object):
                 else 1
             ),
             shuffle=False,
-            collate_fn=dataset.collate_fn,
+            collate_fn=collate_fn,
         )
 
     def create_test_iterator(
@@ -287,13 +307,19 @@ class RecurrenceEnvironment(object):
             input_length_modulo=input_length_modulo,
             **args
         )
+
+        collate_fn = dataset.collate_reduce_padding(
+            dataset.collate_fn,
+            key_fn=lambda x: len(x[0]),#x[-1]["n_input_points"],
+            max_size=self.max_size,
+        )
         return DataLoader(
             dataset,
             timeout=0,
             batch_size=batch_size,
             num_workers=1,
             shuffle=False,
-            collate_fn=dataset.collate_fn,
+            collate_fn=collate_fn,
         )
 
     @staticmethod
@@ -339,6 +365,7 @@ class RecurrenceEnvironment(object):
         parser.add_argument("--max_number", type=int, default=1e100,
                             help="Maximal order of magnitude")
         parser.add_argument("--max_token_len", type=int, default=0, help="max size of tokenized sentences, 0 is no filtering")
+        parser.add_argument("--tokens_per_batch", type=int, default=10000, help="max number of tokens per batch")
 
         #generator 
         parser.add_argument("--max_int", type=int, default=10,
@@ -385,6 +412,8 @@ class EnvDataset(Dataset):
         self.count = 0
         self.type = type
         self.input_length_modulo=input_length_modulo
+        self.tokens_per_batch = params.tokens_per_batch
+        self.collate_size_fn = self.size_with_pad
 
         if "nb_ops_prob" in args:
             self.nb_ops_prob = args["nb_ops_prob"]
@@ -415,6 +444,8 @@ class EnvDataset(Dataset):
         self.basepos = 0
         self.nextpos = 0
         self.seekpos = 0
+
+        self.collate_queue: Optional[List] = [] if self.train else None
 
         # generation, or reloading from file
         if path is not None:
@@ -482,6 +513,14 @@ class EnvDataset(Dataset):
         if len(self.data) == 0:
             self.load_chunk()
 
+    def size_with_pad(self, batch: Dict) -> int:
+        if len(batch) == 0:
+            return 0
+
+        size = len(batch) * max(2 + len(x[0]) for x in batch)
+        return size
+
+
     def collate_fn(self, elements):
         """
         Collate samples into a batch.
@@ -493,6 +532,108 @@ class EnvDataset(Dataset):
         x, x_len = self.env.batch_sequences(x)
         y, y_len = self.env.batch_sequences(y)
         return (x, x_len), (y, y_len), tree, info_tensor
+
+
+    def collate_reduce_padding(self, collate_fn, key_fn, max_size=None):
+        f = self.collate_reduce_padding_uniform
+        def wrapper(b):
+            try:
+                return f(
+                    collate_fn=collate_fn,
+                    key_fn=key_fn,
+                    max_size=max_size,
+                )(b)
+            except ZMQNotReady:
+                return ZMQNotReadySample()
+        return wrapper
+
+    def collate_reduce_padding_uniform(
+        self, collate_fn, key_fn, max_size=None
+    ):
+        """
+        Stores a queue of COLLATE_QUEUE_SIZE candidates (created with warm-up).
+        When collating, insert into the queue then sort by key_fn.
+        Return a random range in collate_queue.
+        @param collate_fn: the final collate function to be used
+        @param key_fn: how elements should be sorted (input is an item)
+        @param size_fn: if a target batch size is wanted, function to compute the size (input is a batch)
+        @param max_size: if not None, overwrite params.batch.tokens
+        @return: a wrapped collate_fn
+        """
+
+        def wrapped_collate(sequences: List):
+
+            if not self.train:
+                return collate_fn(sequences)
+
+            # fill queue
+            assert all(seq == SKIP_ITEM for seq in sequences)
+            assert len(self.collate_queue) < COLLATE_QUEUE_SIZE
+            self._fill_queue(n=-1, key_fn=key_fn)
+            assert len(self.collate_queue) == COLLATE_QUEUE_SIZE
+
+            # select random index
+            before = self.env.rng.randint(-self.batch_size, len(self.collate_queue))
+            before = max(min(before, len(self.collate_queue) - self.batch_size), 0)
+            after = self.get_last_seq_id(before, max_size)
+
+            # create batch / remove sampled sequences from the queue
+            to_ret = collate_fn(self.collate_queue[before:after])
+            self.collate_queue = (
+                self.collate_queue[:before] + self.collate_queue[after:]
+            )
+
+            return to_ret
+
+        return wrapped_collate
+
+    def _fill_queue(self, n: int, key_fn):
+        """
+        Add elements to the queue (fill it entirely if `n == -1`)
+        Optionally sort it (if `key_fn` is not `None`)
+        Compute statistics
+        """
+        assert self.train, "Not Implemented"
+        assert len(self.collate_queue) < COLLATE_QUEUE_SIZE
+
+        # number of elements to add
+        n = COLLATE_QUEUE_SIZE - len(self.collate_queue) if n == -1 else n
+        assert n > 0
+
+        for _ in range(n):
+            sample = self.generate_sample()
+            self.collate_queue.append(sample)
+        
+        # sort sequences
+        if key_fn is not None:
+            self.collate_queue.sort(key=key_fn)
+            
+    def get_last_seq_id(self, before: int, max_size: Optional[int]) -> int:
+        """
+        Return the last sequence ID that would allow to fit according to `size_fn`.
+        """
+        max_size = self.tokens_per_batch if max_size is None else max_size
+
+        if max_size < 0:
+            after = before + self.batch_size
+        else:
+            after = before
+            while (
+                after < len(self.collate_queue)
+                and self.collate_size_fn(self.collate_queue[before:after]) < max_size
+            ):
+                after += 1
+            # if we exceed `tokens_per_batch`, remove the last element
+            size = self.collate_size_fn(self.collate_queue[before:after])
+            if size > max_size:
+                if after > before + 1:
+                    after -= 1
+                else:
+                    logger.warning(
+                        f"Exceeding tokens_per_batch: {size} "
+                        f"({after - before} sequences)"
+                    )
+        return after
 
     def init_rng(self):
         """
@@ -545,7 +686,7 @@ class EnvDataset(Dataset):
         """
         self.init_rng()
         if self.path is None:
-            return self.generate_sample()
+            return SKIP_ITEM if self.train else self.generate_sample()
         else:
             return self.read_sample(index)
 
