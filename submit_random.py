@@ -21,7 +21,7 @@ from distutils import dir_util
 import train as classification
 import submitit
 
-FOLDER_NAME = "paper/random"
+FOLDER_NAME = "paper/all"
 
 def parse_args():
     classification_parser = classification.get_parser()
@@ -87,11 +87,10 @@ def main():
 
     grid = {
         "float_sequences": [True],
-        "output_numeric":  [True,False],
+        "output_numeric":  [False],
         "batch_size": [32],
-        "optimizer":["adam_inverse_sqrt,lr=0.0001"],
-        "prob_rand": [0.1]
-        # "curriculum_n_ops": [True]
+        # "prob_rand": [0.1, 0.3],
+        "train_noise": [0.1, 0.3]
     }
 
     def dict_product(d):
@@ -102,6 +101,7 @@ def main():
     for params in dict_product(grid):
 
         args.master_port = np.random.randint(10001, 20000)
+        args.optimizer = "adam_inverse_sqrt,lr=0.0002"
         args.n_enc_layers = 8
         args.n_dec_layers = 8
         args.enc_emb_dim = 1024

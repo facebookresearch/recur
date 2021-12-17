@@ -94,7 +94,14 @@ def legend_no_duplicates(ax, **kwargs):
     handles, labels = ax.get_legend_handles_labels()
     unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[i+1:]]
     ax.legend(*zip(*unique), **kwargs)
-    
+
+def latex_float(f, precision=3):
+    float_str = f"%.{precision}g"%f
+    if "e" in float_str:
+        base, exponent = float_str.split("e")
+        return r"{0} \times 10^{{{1}}}".format(base, int(exponent))
+    else:
+        return float_str
 
 ############################ RECURRENCE ############################
 

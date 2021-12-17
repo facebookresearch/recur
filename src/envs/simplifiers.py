@@ -21,8 +21,8 @@ class Simplifier():
             'arcsin': sp.asin,
             'arccos': sp.acos,
             'arctan': sp.atan,
-            'step': sp.Heaviside,
             'sign': sp.sign,
+            'step': sp.Heaviside,
         }
         for k in (generator.variables):
             self.local_dict[k] =  sp.Symbol(k, real=True, integer=not self.params.float_sequences) 

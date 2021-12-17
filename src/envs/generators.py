@@ -34,8 +34,9 @@ operators_int = {
     'mod': 2,
     'abs': 1,
     'sqr': 1,
-    'step': 1,
+    'relu': 1,
     'sign': 1,
+    # 'step': 1,
 }
 
 operators_extra = {
@@ -143,10 +144,12 @@ class Node():
             return abs(self.children[0].val(series))
         if self.value == 'sign':
             return int(self.children[0].val(series)>=0)*2-1
-        if self.value == "step":
+        if self.value == "relu":
             x = self.children[0].val(series)
             return x if x>0 else 0
-        
+        if self.value == "step":
+            x = self.children[0].val(series)
+            return 1 if x>0 else 0
         if self.value == "id":
             return self.children[0].val(series)
         if self.value == 'fresnel':
