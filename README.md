@@ -19,6 +19,15 @@ To launch a small Transformer on the CPU, run:
 
 The arguments specific to the generator can be found in ```src/envs/recurrence.py```.
 
+## Multinode training
+
+Distributed training is available via Slurm and [submitit](https://github.com/facebookincubator/submitit):
+```
+pip install submitit
+```
+
+To launch a run on 2 nodes with 8 GPU each, use the ```run_with_submitit``` script.
+
 ## Dependencies
 
 - Python 3
