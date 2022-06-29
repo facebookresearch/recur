@@ -1,7 +1,7 @@
-# Copyright (c) 2020-present, Facebook, Inc.
+# Copyright (c) 2015-present, Facebook, Inc.
 # All rights reserved.
 #
-# This source code is licensed under the license found in the
+# This source code is licensed under the CC-by-NC license found in the
 # LICENSE file in the root directory of this source tree.
 #
 
@@ -542,7 +542,7 @@ class TransformerModel(nn.Module):
         ]
 
         # positions
-        positions = src_len.new(max_len).long()  ##TODO: why is max_len so big? 
+        positions = src_len.new(max_len).long()  
         positions = (
             torch.arange(max_len, out=positions).unsqueeze(1).expand_as(generated)
         )

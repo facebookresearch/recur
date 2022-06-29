@@ -1,7 +1,7 @@
-# Copyright (c) 2020-present, Facebook, Inc.
+# Copyright (c) 2015-present, Facebook, Inc.
 # All rights reserved.
 #
-# This source code is licensed under the license found in the
+# This source code is licensed under the CC-by-NC license found in the
 # LICENSE file in the root directory of this source tree.
 #
 
@@ -33,11 +33,11 @@ def get_parser():
     parser = argparse.ArgumentParser(description="Recurrence prediction", add_help=False)
 
     # main parameters
-    parser.add_argument("--dump_path", type=str, default="",
+    parser.add_argument("--dump_path", type=str, default=".",
                         help="Experiment dump path")
     parser.add_argument("--exp_name", type=str, default="debug",
                         help="Experiment name")
-    parser.add_argument("--print_freq", type=int, default=100,
+    parser.add_argument("--print_freq", type=int, default=10,
                         help="Print every n steps")
     parser.add_argument("--save_periodic", type=int, default=25,
                         help="Save the model periodically (0 to disable)")
@@ -51,13 +51,13 @@ def get_parser():
                         help="Use AMP wrapper for float16 / distributed / gradient accumulation. Level of optimization. -1 to disable.")
 
     # model parameters
-    parser.add_argument("--enc_emb_dim", type=int, default=256,
+    parser.add_argument("--enc_emb_dim", type=int, default=128,
                         help="Encoder embedding layer size")
-    parser.add_argument("--dec_emb_dim", type=int, default=256,
+    parser.add_argument("--dec_emb_dim", type=int, default=128,
                         help="Decoder embedding layer size")
-    parser.add_argument("--n_enc_layers", type=int, default=4,
+    parser.add_argument("--n_enc_layers", type=int, default=2,
                         help="Number of Transformer layers in the encoder")
-    parser.add_argument("--n_dec_layers", type=int, default=4,
+    parser.add_argument("--n_dec_layers", type=int, default=2,
                         help="Number of Transformer layers in the decoder")
     parser.add_argument("--n_enc_heads", type=int, default=8,
                         help="Number of Transformer encoder heads")
@@ -87,7 +87,7 @@ def get_parser():
                         help="Base seed for environments (-1 to use timestamp seed)")
     parser.add_argument("--test_env_seed", type=int, default=1,
                         help="Test seed for environments")
-    parser.add_argument("--batch_size", type=int, default=256,
+    parser.add_argument("--batch_size", type=int, default=32,
                         help="Number of sentences per batch")
     parser.add_argument("--batch_size_eval", type=int, default=None,
                         help="Number of sentences per batch during evaluation (if None, set to 1.5*batch_size)")
@@ -95,7 +95,7 @@ def get_parser():
                         help="Optimizer (SGD / RMSprop / Adam, etc.)")
     parser.add_argument("--clip_grad_norm", type=float, default=1,
                         help="Clip gradients norm (0 to disable)")
-    parser.add_argument("--epoch_size", type=int, default=300000,
+    parser.add_argument("--epoch_size", type=int, default=10000,
                         help="Epoch size / evaluation frequency")
     parser.add_argument("--max_epoch", type=int, default=100000,
                         help="Number of epochs")
@@ -148,7 +148,7 @@ def get_parser():
                         help="Reload a checkpoint")
 
     # evaluation
-    parser.add_argument("--eval_size", type=int, default=10000,
+    parser.add_argument("--eval_size", type=int, default=1000,
                         help="Size of valid and test samples")
     parser.add_argument("--train_noise", type=float, default=0,
                         help="Amount of noise at train time")
@@ -253,7 +253,6 @@ def main(params):
                 logger.info("__log__:%s" % json.dumps(scores))
                 
             if params.curriculum_n_ops:
-                ##TODO: deal with multidim case
                 neg_accuracy_per_n_ops = {int(measure.split("_")[-1]): 1.-acc/100. for measure, acc in scores.items() if "n_ops" in measure and "valid1" in measure}
                 min_neg_accuracy_per_n_ops = min(neg_accuracy_per_n_ops.values())
                 for op in range(1,params.max_ops+1):

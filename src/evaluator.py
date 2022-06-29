@@ -1,7 +1,7 @@
-# Copyright (c) 2020-present, Facebook, Inc.
+# Copyright (c) 2015-present, Facebook, Inc.
 # All rights reserved.
 #
-# This source code is licensed under the license found in the
+# This source code is licensed under the CC-by-NC license found in the
 # LICENSE file in the root directory of this source tree.
 #
 
@@ -213,7 +213,7 @@ class Evaluator(object):
             # correct outputs per sequence / valid top-1 predictions
             t = torch.zeros_like(pred_mask, device=y.device)
             t[pred_mask] += word_scores.max(1)[1] == y
-            perfect_match = (t.sum(0) == len2 - 1).cpu().long() ##TODO: check here
+            perfect_match = (t.sum(0) == len2 - 1).cpu().long() 
             valid = perfect_match.clone()
             n_perfect_match += perfect_match.sum().item()
 

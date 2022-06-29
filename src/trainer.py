@@ -1,9 +1,10 @@
-# Copyright (c) 2020-present, Facebook, Inc.
+# Copyright (c) 2015-present, Facebook, Inc.
 # All rights reserved.
 #
-# This source code is licensed under the license found in the
+# This source code is licensed under the CC-by-NC license found in the
 # LICENSE file in the root directory of this source tree.
 #
+
 import json
 import os
 import io
@@ -138,7 +139,6 @@ class Trainer(object):
         # reload exported data
         if params.reload_data != "":
             logger.info(params.reload_data)
-            #assert params.num_workers in [0, 1] ##TODO: why have that?
             assert params.export_data is False
             s = [x.split(",") for x in params.reload_data.split(";") if len(x) > 0]
             assert (
@@ -322,7 +322,8 @@ class Trainer(object):
             self.stats["processed_e"] * 1.0 / diff,
             self.stats["processed_w"] * 1.0 / diff,
         )
-        max_mem = torch.cuda.max_memory_allocated()/1024**2
+        try: max_mem = torch.cuda.max_memory_allocated()/1024**2
+        except: max_mem = 0
         s_mem = (" MEM: {:.2f} MB - ".format(max_mem))
 
         self.stats["processed_e"] = 0

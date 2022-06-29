@@ -1,3 +1,10 @@
+# Copyright (c) 2015-present, Facebook, Inc.
+# All rights reserved.
+#
+# This source code is licensed under the CC-by-NC license found in the
+# LICENSE file in the root directory of this source tree.
+#
+
 import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr
 from .generators import all_operators, math_constants, Node, NodeList
