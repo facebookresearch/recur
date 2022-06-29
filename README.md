@@ -1,6 +1,8 @@
 # Deep Symbolic Regression for Recurrent Sequences
 
-This repository contains code for the paper Deep Symbolic Regression for Recurrent Sequences.
+This repository contains code for the paper [Deep Symbolic Regression for Recurrent Sequences](https://arxiv.org/abs/2201.04600).
+An interactive demonstration of the paper may be found [here](https://symbolicregression.metademolab.com/).
+
 The code is based on the repository [Deep Learning for Symbolic Mathematics](https://github.com/facebookresearch/SymbolicMathematics).
 Most of the code specific to recurrent sequences lies in the folder ```src/envs```.
 
@@ -23,3 +25,19 @@ The arguments specific to the generator can be found in ```src/envs/recurrence.p
 - [NumPy](http://www.numpy.org/)
 - [SymPy](https://www.sympy.org/)
 - [PyTorch](http://pytorch.org/) (tested on version 1.3)
+
+## Citation
+
+If you want to reuse this material, please considering citing the following:
+```
+@article{d2022deep,
+  title={Deep symbolic regression for recurrent sequences},
+  author={d'Ascoli, St{\'e}phane and Kamienny, Pierre-Alexandre and Lample, Guillaume and Charton, Fran{\c{c}}ois},
+  journal={arXiv preprint arXiv:2201.04600},
+  year={2022}
+}
+```
+
+## License
+
+The majority of this repository is released under the Apache 2.0 license as found in the LICENSE file.
